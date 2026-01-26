@@ -1,6 +1,6 @@
 using MyBackend.Models;
 
-namespace MyBackend.Repositories;
+namespace MyBackend.Repositories.Test;
 
 public interface IProductRepository {
     Task<IEnumerable<Product>> GetAllAsync();

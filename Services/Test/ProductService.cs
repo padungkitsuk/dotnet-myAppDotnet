@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using MyBackend.Models;
 using System.Text.Json;
 using System.Text.Encodings.Web;
-using MyBackend.Repositories;
+using MyBackend.Repositories.Test;
 
-namespace MyBackend.Services;
+namespace MyBackend.Services.Test;
 
 public class ProductService : IProductService
 {

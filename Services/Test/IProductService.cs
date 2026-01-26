@@ -1,6 +1,6 @@
 using MyBackend.Models;
 
-namespace MyBackend.Services;
+namespace MyBackend.Services.Test;
 
 public interface IProductService {
     Task<IEnumerable<Product>> GetAllAsync();

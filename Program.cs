@@ -2,8 +2,9 @@ using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using MyBackend.Data;
-using MyBackend.Repositories;
-using MyBackend.Services; // namespace service
+using MyBackend.Repositories.Test;
+using MyBackend.Services.Inspection;
+using MyBackend.Services.Test;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,6 +21,7 @@ builder.Services.AddControllers()
 // ให้ .NET รู้จัก Service
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IInspectionService, InspectionService>();
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -39,11 +41,11 @@ builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlServer(connectionSt
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
+// if (app.Environment.IsDevelopment())
+// {
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+// }
 
 app.UseHttpsRedirection();
 

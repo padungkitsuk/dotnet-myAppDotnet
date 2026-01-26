@@ -4,7 +4,7 @@ using MyBackend.Models;
 using System.Data;
 using Microsoft.Data.SqlClient;
 
-namespace MyBackend.Repositories;
+namespace MyBackend.Repositories.Test;
 
 public class ProductRepository : IProductRepository {
     private readonly string _connectionString;
