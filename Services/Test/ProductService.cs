@@ -1,16 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 // using MyBackend.Data;
-using MyBackend.Models;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using MyBackend.Repositories.Test;
+using MyBackend.Models.Test;
+using MyBackend.Models.Paged;
 
 namespace MyBackend.Services.Test;
 
 public class ProductService : IProductService
 {
     private readonly ILogger<ProductService> _logger;
-    //private readonly AppDbContext _context;
     private readonly JsonSerializerOptions _jsonOptions = new() {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         WriteIndented = true
@@ -59,5 +59,10 @@ public class ProductService : IProductService
         //existingProduct.price = product.price;
         //await _context.SaveChangesAsync();
         return await _repository.UpdateAsync(product);
+    }
+
+    public async Task<PagedResult<Product>> GetPagedAsync(int pageNo, int pageSize)
+    {
+        return await _repository.GetPagedAsync(pageNo, pageSize);
     }
 }

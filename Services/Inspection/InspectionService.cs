@@ -16,7 +16,7 @@ public class InspectionService : IInspectionService
     )
     {
         _logger = logger;
-       // _repository = repository;
+        // _repository = repository;
     }
 
     string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "data.json");
@@ -40,7 +40,7 @@ public class InspectionService : IInspectionService
                         var trans = JsonSerializer.Deserialize<List<InspectionTransaction>>(innerJsonArray, options);
                         if (trans != null)
                         {
-                            result = trans; 
+                            result = trans;
                         }
                     }
                 }
@@ -61,7 +61,7 @@ public class InspectionService : IInspectionService
 
     public async Task<InspectionDetail> GetByIdAsync(int id)
     {
-       var result = new InspectionDetail();
+        var result = new InspectionDetail();
         try
         {
             if (File.Exists(filePath))
@@ -78,7 +78,7 @@ public class InspectionService : IInspectionService
                         var trans = JsonSerializer.Deserialize<InspectionDetail>(innerJsonArray, options);
                         if (trans != null)
                         {
-                            result = trans; 
+                            result = trans;
                         }
                     }
                 }
@@ -91,9 +91,44 @@ public class InspectionService : IInspectionService
         catch (Exception ex)
         {
             Console.WriteLine($"เกิดข้อผิดพลาด: {ex.Message}");
-            // อาจจะ throw ต่อ หรือ return list ว่างก็ได้ครับ
         }
 
         return result;
+    }
+
+    public async Task<InspectionDetail> CreateAsync(InspectionDetail d)
+    {
+        if (d == null) return new InspectionDetail();
+
+        var result = new InspectionDetail();
+        try
+        {
+            string jsonFileContent = await File.ReadAllTextAsync(filePath);
+            result.createDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"เกิดข้อผิดพลาด: {ex.Message}");
+        }
+        _logger.LogInformation("Inspect Detail: {Json} เวลา {Time}", JsonSerializer.Serialize(d, _jsonOptions), DateTime.Now);
+        return result;
+    }
+
+    public async Task<bool> UpdateAsync(InspectionDetail d)
+    {
+        bool isSuccess = false;
+        try
+        {
+            string jsonFileContent = await File.ReadAllTextAsync(filePath);
+            if (d == null) return false;
+            d.createDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            isSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "เกิดข้อผิดพลาดในการ Update: {Message}", ex.Message);
+            isSuccess = false;
+        }
+        return isSuccess;
     }
 }

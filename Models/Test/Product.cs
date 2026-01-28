@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace MyBackend.Models
+namespace MyBackend.Models.Test
 {
     public class Product 
     {

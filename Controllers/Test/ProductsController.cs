@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using MyBackend.Models;
+using MyBackend.Models.Api;
+using MyBackend.Models.Paged;
+using MyBackend.Models.Test;
 using MyBackend.Services.Test;
 
 namespace MyBackend.Controllers.Test;
@@ -15,14 +17,28 @@ public class ProductsController : ControllerBase
         _productService = productService;
     }
 
-    [HttpGet]
-    public async Task<ActionResult<ApiResponse<IEnumerable<Product>>>> Get()
-    {
-        var result = await _productService.GetAllAsync();
-        if (result.Count() == 0)
-            return NotFound(new ApiResponse<Product> { Message = "Data not found.", Status = "01" });
+    // [HttpGet]
+    // public async Task<ActionResult<ApiResponse<IEnumerable<Product>>>> Get()
+    // {
+    //     var result = await _productService.GetAllAsync();
+    //     if (result.Count() == 0)
+    //         return NotFound(new ApiResponse<Product> { Message = "Data not found.", Status = "01" });
 
-        return Ok(new ApiResponse<IEnumerable<Product>> { Data = result });
+    //     return Ok(new ApiResponse<IEnumerable<Product>> { Data = result });
+    // }
+
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<IEnumerable<Product>>>> GetAll([FromQuery] int pageNo = 1, [FromQuery] int pageSize = 10)
+    {
+        // ป้องกันกรณีส่งค่าติดลบมา
+        if (pageNo < 1) pageNo = 1;
+        if (pageSize < 1) pageSize = 10;
+
+        var result = await _productService.GetPagedAsync(pageNo, pageSize);
+        if (result.Data.Count() == 0)
+            return NotFound(new PagedResult<IEnumerable<Product>> { Message = "Data not found.", Status = "01" });
+        
+        return Ok(result);
     }
 
     [HttpGet("{id}")]

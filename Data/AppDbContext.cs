@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-using MyBackend.Models; // อ้างอิงถึง Namespace ของ Model
+using MyBackend.Models.Test; // อ้างอิงถึง Namespace ของ Model
 
 namespace MyBackend.Data
 {
