@@ -8,6 +8,7 @@ using MyBackend.Models.Api;
 using MyBackend.Models.Vehicle;
 using MyBackend.Utils.Constants;
 using System.Text.Json.Serialization;
+using System.Collections.Immutable;
 
 namespace MyBackend.Services.Inspection;
 
@@ -31,30 +32,45 @@ public class InspectionService : IInspectionService
 
     string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "data.json");
 
-    public async Task<PagedResult<InspectionTransaction>> GetPagedAsync(int pageNo, int pageSize)
+    public async Task<PagedResult<IEnumerable<InspectionTransaction>>> GetPagedAsync(RequestDataInspection d)
     {
-        return await _repository.GetPagedAsync(pageNo, pageSize);
+        return await _repository.GetPagedAsync(d);
     }
 
-    public async Task<InspectionTransaction?> GetByIdAsync(string id)
+    public async Task<ApiResponse<InspectionTransaction>?> GetByIdAsync(RequestDataInspection d)
     {
         try
         {
-            return await _repository.GetByIdAsync(id);
+            if(string.IsNullOrEmpty(d.JobId)) return new ApiResponse<InspectionTransaction>() {  Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
+            
+            var result = await _repository.GetByIdAsync(d);
+            _logger.LogInformation("GetByIdAsync id: {id} res: {Json}", d.JobId, JsonSerializer.Serialize(result, _jsonOptions));
+            if(result == null) return new ApiResponse<InspectionTransaction>() {  Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
+
+            return new ApiResponse<InspectionTransaction>()
+            {
+                Data = result
+            };
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"เกิดข้อผิดพลาด: {ex.Message}");
-            return new InspectionTransaction();
+            _logger.LogError(ex, "เกิดข้อผิดพลาดใน GetByIdAsync");
+            return new ApiResponse<InspectionTransaction>()
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
         }
     }
 
     public async Task<ApiResponse<IEnumerable<VehicleInfo>>> CreateAsync(InspectionRequest d)
     {
-        _logger.LogInformation("Inspect req: {Json}", JsonSerializer.Serialize(d, _jsonOptions));
-        var result = new ApiResponse<IEnumerable<VehicleInfo>>();
+        d.JobStatus = "NEW";
+        //_logger.LogInformation("Inspect req: {Json}", JsonSerializer.Serialize(d, _jsonOptions));
+
         try
         {
+
             // Validation
             if (d.VehicleInfo == null || d.VehicleInfo.Count == 0)
             {
@@ -65,10 +81,11 @@ public class InspectionService : IInspectionService
                 };
             }
 
-            var plates = (d.FleetStatus == "Y"
-            ? d.VehicleInfo.Select(v => v.CarPlateNo)
-            : d.VehicleInfo.Take(1).Select(v => v.CarPlateNo)
-            ).Where(p => !string.IsNullOrEmpty(p)).ToList();
+            d.VehicleInfo.ForEach(v => v.CarPlateNo = v.CarPlateNo?.Replace(" ", ""));
+
+            var plates = (d.FleetStatus == "Y" ? d.VehicleInfo.Select(v => v.CarPlateNo) : d.VehicleInfo.Take(1).Select(v => v.CarPlateNo))
+            .Where(p => !string.IsNullOrEmpty(p))
+            .ToImmutableArray();
 
 
             var carsHistory = (await _repository.GetCarInfo(plates)).ToList();
@@ -76,40 +93,53 @@ public class InspectionService : IInspectionService
 
             if (carsHistory.Any())
             {
-                // check Duplicate ใช้ LINQ Join/Any // เช็คว่ามีคันไหนที่ทั้ง ทะเบียน และ จังหวัด ตรงกับที่ส่งมาหรือไม่
+                // check Duplicate 
                 var duplicates = carsHistory.Where(h =>
                     d.VehicleInfo.Any(v => v.CarPlateNo == h.CarPlateNo && v.CarProvince == h.CarProvince)
                 ).ToList();
 
                 if (duplicates.Any())
                 {
-                    return new ApiResponse<IEnumerable<VehicleInfo>>
-                    {
-                        Message = StatusConstant.DuplicateMessage,
-                        Status = StatusConstant.DuplicateCode,
-                        Data = duplicates
-                    };
+                    return new ApiResponse<IEnumerable<VehicleInfo>> { Message = StatusConstant.DuplicateMessage, Status = StatusConstant.DuplicateCode, Data = duplicates };
                 }
             }
 
+            var vehicleToProcess = d.FleetStatus == "Y" ? d.VehicleInfo : d.VehicleInfo.Take(1).ToList();
 
+            var requests = vehicleToProcess.Select(v =>
+            {
+                var req = _mapper.Map<InspectionTransaction>(d);
 
+                // Map Customer Info
+                req.CustomerType = d.CustomerInfo?.CustomerType;
+                req.CustomerFirstName = d.CustomerInfo?.CustomerFirstName;
+                req.CustomerLastName = d.CustomerInfo?.CustomerLastName;
+                req.CustomerPhone = d.CustomerInfo?.CustomerPhone;
+                req.PaymentInfo = d.CustomerInfo?.PaymentInfo;
 
-            //var request = _mapper.Map<InspectionTransaction>(d);
-            // if (d != null && d.VehicleInfo != null && d.VehicleInfo.Count >= 1)
-            // {
-            //     request.CarType = d.VehicleInfo[0].CarType;
-            //     request.CarRedLicense = d.VehicleInfo[0].CarRedLicense;
-            //     request.CarPlateNo = d.VehicleInfo[0].CarPlateNo;
-            //     request.CarProvince = d.VehicleInfo[0].CarProvince;
-            //     request.CarBrand = d.VehicleInfo[0].CarBrand;
-            //     request.CarModel = d.VehicleInfo[0].CarModel;
-            //     request.CarSubModel = d.VehicleInfo[0].CarSubModel;
-            //     request.ChassisNumber = d.VehicleInfo[0].ChassisNumber;
-            // }
+                // Map Vehicle Info
+                req.CarType = v.CarType;
+                req.CarRedLicense = v.CarRedLicense;
+                req.CarPlateNo = v.CarPlateNo;
+                req.CarProvince = v.CarProvince;
+                req.CarBrand = v.CarBrand;
+                req.CarModel = v.CarModel;
+                req.CarSubModel = v.CarSubModel;
+                req.ChassisNumber = v.ChassisNumber;
 
-            //result = await _repository.CreateAsync(request);
-            return new ApiResponse<IEnumerable<VehicleInfo>> { Status = StatusConstant.SuccessCode };
+                return req;
+            }).ToList();
+
+            var savedData = await _repository.CreateAsync(requests);
+
+            var result = savedData.Select(s => new VehicleInfo
+            {
+                CarPlateNo = s.CarPlateNo,
+                CarProvince = s.CarProvince,
+                JobId = s.JobId
+            });
+
+            return new ApiResponse<IEnumerable<VehicleInfo>>{ Data = result };
         }
         catch (Exception ex)
         {
@@ -121,30 +151,35 @@ public class InspectionService : IInspectionService
             };
 
         }
-
-
     }
 
-    public async Task<bool> UpdateAsync(InspectionDetail d)
+    public async Task<ApiResponse<InspectionTransaction>> UpdateAsync(InspectionTransaction d)
     {
-        bool isSuccess = false;
         try
         {
-            string jsonFileContent = await File.ReadAllTextAsync(filePath);
-            if (d == null) return false;
-            d.createDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            isSuccess = true;
+            // string jsonFileContent = await File.ReadAllTextAsync(filePath);
+            // if (d == null) return false;
+            // d.createDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            // isSuccess = true;
+            var result = await _repository.UpdateAsync(d);
+            if(!result) return new ApiResponse<InspectionTransaction>(){ Message = StatusConstant.ErrorMessage, Status = StatusConstant.ErrorCode };
+            return new ApiResponse<InspectionTransaction>(){};
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "เกิดข้อผิดพลาดในการ Update: {Message}", ex.Message);
-            isSuccess = false;
+            return new ApiResponse<InspectionTransaction>()
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
         }
-        return isSuccess;
     }
 
     public async Task<string> GetSeq()
     {
         return await _repository.GetSeq();
     }
+
+
 }

@@ -24,6 +24,7 @@ namespace MyBackend.Models.Paged
         public int TotalPage => PageSize > 0 ? (int)Math.Ceiling((double)TotalRow / PageSize) : 0;
 
         [JsonPropertyName("data")]
-        public IEnumerable<T> Data { get; set; } = new List<T>();
+        //public IEnumerable<T> Data { get; set; } = [];
+        public T? Data { get; set; }
     }
 }

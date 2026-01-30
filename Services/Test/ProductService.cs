@@ -61,8 +61,8 @@ public class ProductService : IProductService
         return await _repository.UpdateAsync(product);
     }
 
-    public async Task<PagedResult<Product>> GetPagedAsync(int pageNo, int pageSize)
-    {
-        return await _repository.GetPagedAsync(pageNo, pageSize);
-    }
+    // public async Task<PagedResult<Product>> GetPagedAsync(int pageNo, int pageSize)
+    // {
+    //     return await _repository.GetPagedAsync(pageNo, pageSize);
+    // }
 }

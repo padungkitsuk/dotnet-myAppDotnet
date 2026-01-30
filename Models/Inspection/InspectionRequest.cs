@@ -64,6 +64,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("noSurveyDesc")]
         public string? NoSurveyDesc { get; set; }
 
+        [JsonPropertyName("jobStatus")]
+        public string? JobStatus { get; set; }
+
         [JsonPropertyName("jobDesc")]
         public string? JobDesc { get; set; }
     }

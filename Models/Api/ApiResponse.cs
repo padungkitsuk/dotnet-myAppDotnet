@@ -1,14 +1,15 @@
 using System.Text.Json.Serialization;
+using MyBackend.Utils.Constants;
 
 namespace MyBackend.Models.Api;
 
 public class ApiResponse<T>
 {
     [JsonPropertyName("message")]
-    public string Message { get; set; } = "Transaction success.";
+    public string Message { get; set; } = StatusConstant.SuccessMessage;
 
     [JsonPropertyName("status")]
-    public string Status { get; set; } = "00";
+    public string Status { get; set; } = StatusConstant.SuccessCode;
 
     //[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("data")]

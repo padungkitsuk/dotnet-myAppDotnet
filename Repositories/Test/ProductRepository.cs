@@ -65,26 +65,26 @@ public class ProductRepository : IProductRepository
         return rowsAffected > 0;
     }
 
-    public async Task<PagedResult<Product>> GetPagedAsync(int pageNo, int pageSize)
-    {
-        var allData = await GetAllAsync(); // ใช้ Method เดิมที่คุณเขียนไว้อ่านไฟล์ JSON
+    // public async Task<PagedResult<Product>> GetPagedAsync(int pageNo, int pageSize)
+    // {
+    //     var allData = await GetAllAsync(); // ใช้ Method เดิมที่คุณเขียนไว้อ่านไฟล์ JSON
 
-        var totalItems = allData.Count();
+    //     var totalItems = allData.Count();
 
-        // คำนวณการข้ามและการดึงข้อมูล
-        var pagedData = allData
-        .OrderBy(t => t.Id)
-        .ThenByDescending(t => t.Name)
-            .Skip((pageNo - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
+    //     // คำนวณการข้ามและการดึงข้อมูล
+    //     var pagedData = allData
+    //     .OrderBy(t => t.Id)
+    //     .ThenByDescending(t => t.Name)
+    //         .Skip((pageNo - 1) * pageSize)
+    //         .Take(pageSize)
+    //         .ToList();
 
-        return new PagedResult<Product>
-        {
-            TotalRow = totalItems,
-            PageNo = pageNo,
-            PageSize = pageSize,
-            Data = pagedData
-        };
-    }
+    //     return new PagedResult<Product>
+    //     {
+    //         TotalRow = totalItems,
+    //         PageNo = pageNo,
+    //         PageSize = pageSize,
+    //         Data = pagedData
+    //     };
+    // }
 }

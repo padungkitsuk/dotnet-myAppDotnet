@@ -19,7 +19,7 @@ namespace MyBackend.Models.Inspection
         public string? JobCreateBy { get; set; }
 
         [JsonPropertyName("jobCreateDate")]
-        public DateTime? JobCreateDate { get; set; }
+        public string? JobCreateDate { get; set; }
 
         [JsonPropertyName("jobOwner")]
         public string? JobOwner { get; set; }
@@ -37,7 +37,7 @@ namespace MyBackend.Models.Inspection
         public string? PolicyNo { get; set; }
 
         [JsonPropertyName("policyEffectiveDate")]
-        public DateTime? PolicyEffectiveDate { get; set; }
+        public string? PolicyEffectiveDate { get; set; }
 
         [JsonPropertyName("customerType")]
         public string? CustomerType { get; set; }
@@ -95,6 +95,9 @@ namespace MyBackend.Models.Inspection
 
         [JsonPropertyName("noSurveyDesc")]
         public string? NoSurveyDesc { get; set; }
+
+        [JsonPropertyName("jobStatus")]
+        public string? JobStatus { get; set; }
 
         [JsonPropertyName("jobDesc")]
         public string? JobDesc { get; set; }

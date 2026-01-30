@@ -3,9 +3,7 @@ using MyBackend.Models.Api;
 using MyBackend.Models.Inspection;
 using MyBackend.Models.Paged;
 using MyBackend.Models.Vehicle;
-using MyBackend.Repositories.Sequence;
 using MyBackend.Services.Inspection;
-using MyBackend.Utils.Constants;
 
 namespace MyBackend.Controllers.Inspect;
 
@@ -20,53 +18,58 @@ public class InspectionController : ControllerBase
         _inspectService = inspectService;
     }
 
-    [HttpGet]
-    public async Task<ActionResult<PagedResult<IEnumerable<InspectionTransaction>>>> GetPaged([FromQuery] int pageNo = 1, [FromQuery] int pageSize = 10)
+    [HttpPost("list")]
+    public async Task<ActionResult<PagedResult<IEnumerable<InspectionTransaction>>>> GetPaged(RequestDataInspection d)
     {
-        if (pageNo < 1) pageNo = 1;
-        if (pageSize < 1) pageSize = 10;
+        if (d.PageNo < 1) d.PageNo = 1;
+        if (d.PageSize < 1) d.PageSize = 10;
 
-        var result = await _inspectService.GetPagedAsync(pageNo, pageSize);
-        if (result.Data.Count() == 0)
-            return NotFound(new PagedResult<IEnumerable<InspectionTransaction>> { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode });
-        return Ok(result);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<ActionResult<ApiResponse<InspectionTransaction>>> GetById(string id)
-    {
-        var result = await _inspectService.GetByIdAsync(id);
-        if (result == null)
-            return NotFound(new ApiResponse<InspectionTransaction> { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode });
-
-        return Ok(new ApiResponse<InspectionTransaction> { Data = result });
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<ApiResponse<IEnumerable<VehicleInfo>>>> CreateAsync(InspectionRequest d)
-    {
-        var result = await _inspectService.CreateAsync(d);
-        if (result == null)
-            return BadRequest(new ApiResponse<string> { Message = StatusConstant.BadRequestMessage, Status = StatusConstant.BadRequestCode });
+        var result = await _inspectService.GetPagedAsync(d);
 
         return result.Status switch
         {
-            "00" => Ok(new ApiResponse<IEnumerable<VehicleInfo>> { Data = result.Data }),
-
-            "01" => Conflict(new ApiResponse<IEnumerable<VehicleInfo>>
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new PagedResult<IEnumerable<InspectionTransaction>>
             {
-                Message = StatusConstant.DuplicateMessage,
-                Status = StatusConstant.DuplicateCode,
-                Data = result.Data
-            }),
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
 
-            "99" => StatusCode(500, new ApiResponse<IEnumerable<VehicleInfo>>
+    [HttpPost("detail")]
+    public async Task<ActionResult<ApiResponse<InspectionTransaction>>> GetById(RequestDataInspection d)
+    {
+        var result = await _inspectService.GetByIdAsync(d);
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new ApiResponse<InspectionTransaction>
             {
-                Message = StatusConstant.ErrorMessage,
-                Status = StatusConstant.ErrorCode,
-                Data = result.Data
-            }),
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
 
+    [HttpPost("create")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<VehicleInfo>>>> CreateAsync(InspectionRequest d)
+    {
+        var result = await _inspectService.CreateAsync(d);
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
             _ => BadRequest(new ApiResponse<IEnumerable<VehicleInfo>>
             {
                 Message = "Unknown Error",
@@ -76,16 +79,27 @@ public class InspectionController : ControllerBase
         };
     }
 
-    [HttpPut]
-    public async Task<ActionResult<ApiResponse<bool>>> UpdateAsync(InspectionDetail d)
+    [HttpPost("update")]
+    public async Task<ActionResult<ApiResponse<InspectionTransaction>>> UpdateAsync(InspectionTransaction d)
     {
-        if (d.jobId == "") return BadRequest(new ApiResponse<bool> { Message = StatusConstant.BadRequestMessage, Status = StatusConstant.BadRequestCode });
-        var success = await _inspectService.UpdateAsync(d);
-        if (!success) return NotFound(new ApiResponse<bool> { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode });
-        return Ok(new ApiResponse<bool> { Data = success });
+        var result = await _inspectService.UpdateAsync(d);
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new ApiResponse<InspectionTransaction>
+            {
+                Message = "Unknown Error",
+                Status = result.Status,
+                Data = d
+            })
+        };
     }
 
-    [HttpGet("seq")]
+    [HttpPost("seq")]
     public async Task<ActionResult<ApiResponse<string>>> GetSeq()
     {
         var result = await _inspectService.GetSeq();

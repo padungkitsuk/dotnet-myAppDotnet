@@ -12,8 +12,8 @@ public class SequenceRepository : ISequenceRepository
     private readonly ILogger<SequenceRepository> _logger;
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        WriteIndented = true
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        //, WriteIndented = true
     };
 
     public SequenceRepository(DbConnectionFactory context, ILogger<SequenceRepository> logger)
