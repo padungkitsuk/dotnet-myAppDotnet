@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using MyBackend.Models.Api;
 using MyBackend.Models.Inspection;
+using MyBackend.Models.Paged;
+using MyBackend.Models.Vehicle;
 using MyBackend.Repositories.Sequence;
 using MyBackend.Services.Inspection;
+using MyBackend.Utils.Constants;
 
 namespace MyBackend.Controllers.Inspect;
 
@@ -11,63 +14,82 @@ namespace MyBackend.Controllers.Inspect;
 public class InspectionController : ControllerBase
 {
     private readonly IInspectionService _inspectService;
-    private readonly ISequenceRepository _seq;
 
-    public InspectionController(IInspectionService inspectService, ISequenceRepository seq)
+    public InspectionController(IInspectionService inspectService)
     {
         _inspectService = inspectService;
-        _seq = seq;
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTransaction>>>> Get()
+    public async Task<ActionResult<PagedResult<IEnumerable<InspectionTransaction>>>> GetPaged([FromQuery] int pageNo = 1, [FromQuery] int pageSize = 10)
     {
-        var result = await _inspectService.GetAllAsync();
-        if (result.Count() == 0)
-            return NotFound(new ApiResponse<InspectionTransaction> { Message = "Data not found.", Status = "01" });
+        if (pageNo < 1) pageNo = 1;
+        if (pageSize < 1) pageSize = 10;
 
-        return Ok(new ApiResponse<IEnumerable<InspectionTransaction>> { Data = result });
+        var result = await _inspectService.GetPagedAsync(pageNo, pageSize);
+        if (result.Data.Count() == 0)
+            return NotFound(new PagedResult<IEnumerable<InspectionTransaction>> { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode });
+        return Ok(result);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ApiResponse<InspectionTransaction>>> GetById(string id)
+    {
+        var result = await _inspectService.GetByIdAsync(id);
+        if (result == null)
+            return NotFound(new ApiResponse<InspectionTransaction> { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode });
+
+        return Ok(new ApiResponse<InspectionTransaction> { Data = result });
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<ApiResponse<IEnumerable<VehicleInfo>>>> CreateAsync(InspectionRequest d)
+    {
+        var result = await _inspectService.CreateAsync(d);
+        if (result == null)
+            return BadRequest(new ApiResponse<string> { Message = StatusConstant.BadRequestMessage, Status = StatusConstant.BadRequestCode });
+
+        return result.Status switch
+        {
+            "00" => Ok(new ApiResponse<IEnumerable<VehicleInfo>> { Data = result.Data }),
+
+            "01" => Conflict(new ApiResponse<IEnumerable<VehicleInfo>>
+            {
+                Message = StatusConstant.DuplicateMessage,
+                Status = StatusConstant.DuplicateCode,
+                Data = result.Data
+            }),
+
+            "99" => StatusCode(500, new ApiResponse<IEnumerable<VehicleInfo>>
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode,
+                Data = result.Data
+            }),
+
+            _ => BadRequest(new ApiResponse<IEnumerable<VehicleInfo>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status,
+                Data = result.Data
+            })
+        };
+    }
+
+    [HttpPut]
+    public async Task<ActionResult<ApiResponse<bool>>> UpdateAsync(InspectionDetail d)
+    {
+        if (d.jobId == "") return BadRequest(new ApiResponse<bool> { Message = StatusConstant.BadRequestMessage, Status = StatusConstant.BadRequestCode });
+        var success = await _inspectService.UpdateAsync(d);
+        if (!success) return NotFound(new ApiResponse<bool> { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode });
+        return Ok(new ApiResponse<bool> { Data = success });
     }
 
     [HttpGet("seq")]
     public async Task<ActionResult<ApiResponse<string>>> GetSeq()
     {
-        var result = await _seq.GetNextSequenceValue();
+        var result = await _inspectService.GetSeq();
         return Ok(new ApiResponse<string> { Data = result });
     }
-
-    [HttpGet("{id}")]
-    public async Task<ActionResult<ApiResponse<InspectionDetail>>> GetById(int id)
-    {
-        var result = await _inspectService.GetByIdAsync(id);
-        if (result == null)
-            return NotFound(new ApiResponse<InspectionDetail> { Message = "Data not found.", Status = "01" });
-
-        return Ok(new ApiResponse<InspectionDetail> { Data = result });
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<InspectionDetail>> Post(InspectionDetail d)
-    {
-        try
-        {
-            var result = await _inspectService.CreateAsync(d);
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    [HttpPut]
-    public async Task<ActionResult<ApiResponse<bool>>> Put(InspectionDetail d)
-    {
-        if (d.jobId == "") return BadRequest(new ApiResponse<bool> { Message = "Bad Request", Status = "400", Data = false });
-        var success = await _inspectService.UpdateAsync(d);
-        if (!success) return NotFound(new ApiResponse<bool> { Message = "Data not found.", Status = "01", Data = false });
-        return Ok(new ApiResponse<bool> { Data = success });
-    }
-
 
 }

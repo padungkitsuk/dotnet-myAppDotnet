@@ -73,15 +73,15 @@ public class ProductRepository : IProductRepository
 
         // คำนวณการข้ามและการดึงข้อมูล
         var pagedData = allData
-        .OrderBy(t => t.id)
-        .ThenByDescending(t => t.name)
+        .OrderBy(t => t.Id)
+        .ThenByDescending(t => t.Name)
             .Skip((pageNo - 1) * pageSize)
             .Take(pageSize)
             .ToList();
 
         return new PagedResult<Product>
         {
-            TotalItems = totalItems,
+            TotalRow = totalItems,
             PageNo = pageNo,
             PageSize = pageSize,
             Data = pagedData

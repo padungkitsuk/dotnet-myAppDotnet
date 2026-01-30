@@ -22,6 +22,9 @@ builder.Services.AddControllers()
 // --- 2. Data Access (Database) ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+// สำหรับ Config AutoMapper
+builder.Services.AddAutoMapper(cfg => { cfg.AddProfile<MappingProfile>(); }, typeof(Program).Assembly); // Scan Profile
+builder.Services.AddScoped<IBaseMapper, BaseMapper>();
 // สำหรับ Dapper ให้รองรับ Snake Case (วิธีแก้แบบถาวรทั้งโปรเจกต์)
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 // สำหรับ Dapper => Inject เข้าไปใน Repository

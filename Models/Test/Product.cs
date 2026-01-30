@@ -1,15 +1,19 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace MyBackend.Models.Test
 {
     public class Product 
     {
         [Key] 
-        public int id { get; set; }
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
         
         [Required] 
-        public string name { get; set; } = string.Empty;
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
         
-        public decimal price { get; set; }
+        [JsonPropertyName("price")]
+        public decimal Price { get; set; }
     }
 }

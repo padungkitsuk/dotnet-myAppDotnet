@@ -37,18 +37,18 @@ public class ProductService : IProductService
     public async Task<Product?> GetByIdAsync(int id){
         //return await _context.products.FindAsync(id);
         var data = await _repository.GetByIdAsync(id);
-        _logger.LogInformation("{Json} เวลา {Time}", JsonSerializer.Serialize(data), DateTime.Now);
+        _logger.LogInformation("{Json} เวลา {Time}", JsonSerializer.Serialize(data), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
         return data;
     }
 
     public async Task<Product> CreateAsync(Product product){
-        if (product.price < 0) throw new Exception("Price cannot be negative");
+        if (product.Price < 0) throw new Exception("Price cannot be negative");
 
         //_context.products.Add(product);
         //await _context.SaveChangesAsync();
         int newId = await _repository.CreateAsync(product);
-        product.id = newId;
-        _logger.LogInformation("สร้างสินค้าสำเร็จ: {Json} เวลา {Time}", JsonSerializer.Serialize(product, _jsonOptions), DateTime.Now);
+        product.Id = newId;
+        _logger.LogInformation("สร้างสินค้าสำเร็จ: {Json} เวลา {Time}", JsonSerializer.Serialize(product, _jsonOptions), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
         return product;
     }
 

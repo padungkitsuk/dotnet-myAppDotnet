@@ -1,117 +1,128 @@
-using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Encodings.Web;
-using MyBackend.Services.Inspection;
 using MyBackend.Models.Inspection;
+using MyBackend.Repositories.Inspection;
+using MyBackend.Models.Paged;
+using AutoMapper;
+using MyBackend.Models.Api;
+using MyBackend.Models.Vehicle;
+using MyBackend.Utils.Constants;
+using System.Text.Json.Serialization;
 
 namespace MyBackend.Services.Inspection;
 
 public class InspectionService : IInspectionService
 {
+    private readonly IInspectionRepository _repository;
     private readonly ILogger<InspectionService> _logger;
-    private readonly JsonSerializerOptions _jsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, WriteIndented = true };
-    //private readonly IProductRepository _repository;
+    private readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+    private readonly IMapper _mapper;
 
-    public InspectionService(ILogger<InspectionService> logger//, IProductRepository repository
-    )
+    public InspectionService(IInspectionRepository repository, ILogger<InspectionService> logger, IMapper mapper)
     {
         _logger = logger;
-        // _repository = repository;
+        _repository = repository;
+        _mapper = mapper;
     }
 
     string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "data.json");
 
-    public async Task<IEnumerable<InspectionTransaction>> GetAllAsync()
+    public async Task<PagedResult<InspectionTransaction>> GetPagedAsync(int pageNo, int pageSize)
     {
-        var result = new List<InspectionTransaction>();
-        try
-        {
-            if (File.Exists(filePath))
-            {
-                // ใช้ ReadAllTextAsync เพื่อไม่ให้ Block Thread
-                string jsonFileContent = await File.ReadAllTextAsync(filePath);
-
-                using (JsonDocument doc = JsonDocument.Parse(jsonFileContent))
-                {
-                    if (doc.RootElement.TryGetProperty("inpectionList", out JsonElement jsonStringElement))
-                    {
-                        string innerJsonArray = jsonStringElement.GetString() ?? "[]";
-                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                        var trans = JsonSerializer.Deserialize<List<InspectionTransaction>>(innerJsonArray, options);
-                        if (trans != null)
-                        {
-                            result = trans;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                Console.WriteLine("ไม่พบไฟล์ที่: " + filePath);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"เกิดข้อผิดพลาด: {ex.Message}");
-            // อาจจะ throw ต่อ หรือ return list ว่างก็ได้ครับ
-        }
-
-        return result;
+        return await _repository.GetPagedAsync(pageNo, pageSize);
     }
 
-    public async Task<InspectionDetail> GetByIdAsync(int id)
+    public async Task<InspectionTransaction?> GetByIdAsync(string id)
     {
-        var result = new InspectionDetail();
         try
         {
-            if (File.Exists(filePath))
-            {
-                // ใช้ ReadAllTextAsync เพื่อไม่ให้ Block Thread
-                string jsonFileContent = await File.ReadAllTextAsync(filePath);
-
-                using (JsonDocument doc = JsonDocument.Parse(jsonFileContent))
-                {
-                    if (doc.RootElement.TryGetProperty("inpectionDetail", out JsonElement jsonStringElement))
-                    {
-                        string innerJsonArray = jsonStringElement.GetString() ?? "[]";
-                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                        var trans = JsonSerializer.Deserialize<InspectionDetail>(innerJsonArray, options);
-                        if (trans != null)
-                        {
-                            result = trans;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                Console.WriteLine("ไม่พบไฟล์ที่: " + filePath);
-            }
+            return await _repository.GetByIdAsync(id);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"เกิดข้อผิดพลาด: {ex.Message}");
+            return new InspectionTransaction();
         }
-
-        return result;
     }
 
-    public async Task<InspectionDetail> CreateAsync(InspectionDetail d)
+    public async Task<ApiResponse<IEnumerable<VehicleInfo>>> CreateAsync(InspectionRequest d)
     {
-        if (d == null) return new InspectionDetail();
-
-        var result = new InspectionDetail();
+        _logger.LogInformation("Inspect req: {Json}", JsonSerializer.Serialize(d, _jsonOptions));
+        var result = new ApiResponse<IEnumerable<VehicleInfo>>();
         try
         {
-            string jsonFileContent = await File.ReadAllTextAsync(filePath);
-            result.createDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            // Validation
+            if (d.VehicleInfo == null || d.VehicleInfo.Count == 0)
+            {
+                return new ApiResponse<IEnumerable<VehicleInfo>>
+                {
+                    Message = StatusConstant.ErrorMessage,
+                    Status = StatusConstant.ErrorCode
+                };
+            }
+
+            var plates = (d.FleetStatus == "Y"
+            ? d.VehicleInfo.Select(v => v.CarPlateNo)
+            : d.VehicleInfo.Take(1).Select(v => v.CarPlateNo)
+            ).Where(p => !string.IsNullOrEmpty(p)).ToList();
+
+
+            var carsHistory = (await _repository.GetCarInfo(plates)).ToList();
+            _logger.LogInformation("carsHistory: {Json}", JsonSerializer.Serialize(carsHistory, _jsonOptions));
+
+            if (carsHistory.Any())
+            {
+                // check Duplicate ใช้ LINQ Join/Any // เช็คว่ามีคันไหนที่ทั้ง ทะเบียน และ จังหวัด ตรงกับที่ส่งมาหรือไม่
+                var duplicates = carsHistory.Where(h =>
+                    d.VehicleInfo.Any(v => v.CarPlateNo == h.CarPlateNo && v.CarProvince == h.CarProvince)
+                ).ToList();
+
+                if (duplicates.Any())
+                {
+                    return new ApiResponse<IEnumerable<VehicleInfo>>
+                    {
+                        Message = StatusConstant.DuplicateMessage,
+                        Status = StatusConstant.DuplicateCode,
+                        Data = duplicates
+                    };
+                }
+            }
+
+
+
+
+            //var request = _mapper.Map<InspectionTransaction>(d);
+            // if (d != null && d.VehicleInfo != null && d.VehicleInfo.Count >= 1)
+            // {
+            //     request.CarType = d.VehicleInfo[0].CarType;
+            //     request.CarRedLicense = d.VehicleInfo[0].CarRedLicense;
+            //     request.CarPlateNo = d.VehicleInfo[0].CarPlateNo;
+            //     request.CarProvince = d.VehicleInfo[0].CarProvince;
+            //     request.CarBrand = d.VehicleInfo[0].CarBrand;
+            //     request.CarModel = d.VehicleInfo[0].CarModel;
+            //     request.CarSubModel = d.VehicleInfo[0].CarSubModel;
+            //     request.ChassisNumber = d.VehicleInfo[0].ChassisNumber;
+            // }
+
+            //result = await _repository.CreateAsync(request);
+            return new ApiResponse<IEnumerable<VehicleInfo>> { Status = StatusConstant.SuccessCode };
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"เกิดข้อผิดพลาด: {ex.Message}");
+            _logger.LogError(ex, "เกิดข้อผิดพลาดใน CreateAsync");
+            return new ApiResponse<IEnumerable<VehicleInfo>>
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
+
         }
-        _logger.LogInformation("Inspect Detail: {Json} เวลา {Time}", JsonSerializer.Serialize(d, _jsonOptions), DateTime.Now);
-        return result;
+
+
     }
 
     public async Task<bool> UpdateAsync(InspectionDetail d)
@@ -130,5 +141,10 @@ public class InspectionService : IInspectionService
             isSuccess = false;
         }
         return isSuccess;
+    }
+
+    public async Task<string> GetSeq()
+    {
+        return await _repository.GetSeq();
     }
 }

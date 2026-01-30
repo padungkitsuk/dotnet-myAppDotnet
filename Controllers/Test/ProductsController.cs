@@ -69,9 +69,9 @@ public class ProductsController : ControllerBase
     [HttpPut]
     public async Task<IActionResult> Put(Product product)
     {
-        if (product.id == 0) return BadRequest("ID is null");
+        if (product.Id == 0) return BadRequest("ID is null");
         var success = await _productService.UpdateAsync(product);
-        if (!success) return NotFound($"Product with ID {product.id} not found");
+        if (!success) return NotFound($"Product with ID {product.Id} not found");
         return Ok();
     }
 }

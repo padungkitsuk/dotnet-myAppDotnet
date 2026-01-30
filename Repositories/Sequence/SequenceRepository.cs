@@ -2,7 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Dapper;
 using MyBackend.Data;
-using MyBackend.Models.Inspection;
+using MyBackend.Models.Sequence;
 
 namespace MyBackend.Repositories.Sequence;
 
@@ -10,7 +10,8 @@ public class SequenceRepository : ISequenceRepository
 {
     private readonly DbConnectionFactory _context;
     private readonly ILogger<SequenceRepository> _logger;
-    private readonly JsonSerializerOptions _jsonOptions = new() {
+    private readonly JsonSerializerOptions _jsonOptions = new()
+    {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         WriteIndented = true
     };
@@ -23,32 +24,47 @@ public class SequenceRepository : ISequenceRepository
 
     public async Task<string> GetNextSequenceValue()
     {
-        const string sql = @"SELECT TOP 1 LEFT(job_id, 4) AS job_id FROM inspection_transaction ORDER BY job_id DESC;";
         using var db = _context.CreateConnection();
-
-        // 1. ดึงข้อมูลล่าสุด
-        var result = await db.QueryFirstOrDefaultAsync<InspectionTransaction>(sql);
-        _logger.LogInformation("nextVal: {Json} {Time}", JsonSerializer.Serialize(result, _jsonOptions), DateTime.Now);
         int currentYear = DateTime.Now.Year;
 
-        // ตรวจสอบกรณีที่ตารางยังไม่มีข้อมูล (result เป็น null)
-        if (result != null && !string.IsNullOrEmpty(result.jobId))
+        // One Query for Performance
+        const string sql = @"
+        DECLARE @NextVal INT;
+        DECLARE @LastYear INT = (SELECT TOP 1 [year] FROM running_job ORDER BY [year] DESC);
+
+        -- 1. check for Reset Sequence
+        IF @LastYear IS NULL OR @currentYear > @LastYear
+        BEGIN
+            EXEC('ALTER SEQUENCE runningJobId RESTART WITH 1');
+            SELECT @NextVal = NEXT VALUE FOR runningJobId;
+            INSERT INTO running_job ([year], job_count) VALUES (@currentYear, @NextVal);
+        END
+        ELSE
+        BEGIN
+            -- 2. case nornal
+            SELECT @NextVal = NEXT VALUE FOR runningJobId;
+            UPDATE running_job SET job_count = @NextVal WHERE [year] = @currentYear;
+        END
+
+        -- return
+        SELECT @NextVal;";
+
+        try
         {
-            int lastUsedYear = Convert.ToInt32(result.jobId);
+            // connect DB return NextVal
+            int nextVal = await db.ExecuteScalarAsync<int>(sql, new { currentYear });
 
-            if (currentYear > lastUsedYear)
-            {
-                // 2. ใช้ .ExecuteAsync แทน .ExecuteRaw
-                await db.ExecuteAsync("ALTER SEQUENCE runningJobId RESTART WITH 1;");
-            }
+            //_logger.LogInformation("Generated JobId: {Year}{NextVal:D6}", currentYear, nextVal);
+            _logger.LogInformation("Generated JobId: {Year}/{NextVal}", currentYear, nextVal);
+
+            //return $"{currentYear}{nextVal:D6}";
+            return $"{currentYear}/{nextVal}";
         }
-
-        // 3. ดึงค่า Sequence (ใช้ ExecuteScalarAsync สำหรับ Async method)
-        var nextVal = await db.ExecuteScalarAsync<int>("SELECT NEXT VALUE FOR runningJobId;");
-
-        _logger.LogInformation("nextVal: {nextVal} {Time}", nextVal, DateTime.Now);
-        // ส่งคืนค่าเป็น string ตาม Signature ของ Method (เช่น "1" หรือจัด Format ตามต้องการ)
-        return $"{currentYear}{nextVal:D6}";;
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating sequence for year {Year}", currentYear);
+            throw;
+        }
     }
 
 
