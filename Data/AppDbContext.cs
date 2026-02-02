@@ -1,13 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 
-using MyBackend.Models.Test; // อ้างอิงถึง Namespace ของ Model
-
 namespace MyBackend.Data
 {
     public class AppDbContext : DbContext 
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
         
-        public DbSet<Product> products => Set<Product>();
+        //public DbSet<Product> products => Set<Product>();
     }
 }

@@ -1,6 +1,6 @@
 using Dapper;
 using System.Data;
-using MyBackend.Models.Paged;
+using MyBackend.Models.Utils.Paged;
 using MyBackend.Data;
 using MyBackend.Models.Inspection;
 using MyBackend.Repositories.Sequence;
@@ -120,18 +120,39 @@ public class InspectionRepository : IInspectionRepository
         }
     }
 
-    public async Task<bool> UpdateAsync(InspectionTransaction d)
+    public async Task<bool> UpdateStatusAsync(InspectionTransactionHistory d)
     {
-        const string sqlUpdate = @" UPDATE inspection_transaction 
-        SET 
-        job_desc = @jobDesc,
-        job_update_date = GETDATE() 
-        WHERE 
-        job_id = @jobId;";
+        //const string sqlUpdate = @" UPDATE inspection_transaction SET job_desc = @jobDesc, job_update_date = GETDATE() WHERE job_id = @jobId;";
+        const string sql = @" 
+        BEGIN TRANSACTION;
+        try
+            DECLARE @LastSeq INT = ISNULL((SELECT MAX(seq) FROM inspection_transaction_history WHERE job_id = @JobId), 0) + 1;
+
+            INSERT INTO inspection_transaction_history 
+            (job_id, seq, create_date, create_by, job_status, job_desc) 
+            VALUES
+            (@JobId, @LastSeq, GETDATE(), @CreateBy, @JobStatus, @JobDesc);
+
+        COMMIT TRANSACTION;
+        catch
+            ROLLBACK TRANSACTION;
+            THROW;
+            ";
 
         using var db = _context.CreateConnection();
-        int rowsAffected = await db.ExecuteAsync(sqlUpdate, d);
-        return rowsAffected > 0;
+        try
+        {
+            // หาก d.JobId เป็น null หรือว่าง ให้ดักไว้ก่อนยิง SQL
+            if (string.IsNullOrEmpty(d.JobId)) return false;
+
+            int rowsAffected = await db.ExecuteAsync(sql, d);
+            return rowsAffected > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating status for JobId: {JobId}", d.JobId);
+            throw;
+        }
     }
 
     public async Task<List<VehicleInfo>> GetCarInfo(IEnumerable<string> carPlateNos)

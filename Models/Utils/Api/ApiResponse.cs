@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using MyBackend.Utils.Constants;
 
-namespace MyBackend.Models.Api;
+namespace MyBackend.Models.Utils.Api;
 
 public class ApiResponse<T>
 {

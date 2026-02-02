@@ -4,9 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MyBackend.Data;
 using MyBackend.Repositories.Inspection;
 using MyBackend.Repositories.Sequence;
-using MyBackend.Repositories.Test;
 using MyBackend.Services.Inspection;
-using MyBackend.Services.Test;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,8 +32,6 @@ builder.Services.AddSingleton<DbConnectionFactory>(); // ใช้ Singleton เ
 builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlServer(connectionString)); //SqlServer
 
 // --- 3. Dependency Injection (Business Logic) ---
-builder.Services.AddScoped<IProductService, ProductService>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IInspectionRepository, InspectionRepository>();
 builder.Services.AddScoped<IInspectionService, InspectionService>();
 builder.Services.AddScoped<ISequenceRepository, SequenceRepository>();

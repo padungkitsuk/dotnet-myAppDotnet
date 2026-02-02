@@ -1,7 +1,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace MyBackend.Models.Paged
+namespace MyBackend.Models.Utils.Paged
 {
     public class PagedResult<T>
     {

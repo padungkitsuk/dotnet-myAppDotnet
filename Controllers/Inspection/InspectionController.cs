@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using MyBackend.Models.Api;
+using MyBackend.Models.Utils.Api;
+using MyBackend.Models.Utils.Paged;
 using MyBackend.Models.Inspection;
-using MyBackend.Models.Paged;
 using MyBackend.Models.Vehicle;
 using MyBackend.Services.Inspection;
 
@@ -79,10 +79,10 @@ public class InspectionController : ControllerBase
         };
     }
 
-    [HttpPost("update")]
-    public async Task<ActionResult<ApiResponse<InspectionTransaction>>> UpdateAsync(InspectionTransaction d)
+    [HttpPost("update/status")]
+    public async Task<ActionResult<ApiResponse<InspectionTransaction>>> UpdateStatusAsync(InspectionTransactionHistory d)
     {
-        var result = await _inspectService.UpdateAsync(d);
+        var result = await _inspectService.UpdateStatusAsync(d);
 
         return result.Status switch
         {
@@ -93,8 +93,7 @@ public class InspectionController : ControllerBase
             _ => BadRequest(new ApiResponse<InspectionTransaction>
             {
                 Message = "Unknown Error",
-                Status = result.Status,
-                Data = d
+                Status = result.Status
             })
         };
     }

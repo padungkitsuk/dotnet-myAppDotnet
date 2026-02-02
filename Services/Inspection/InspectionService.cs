@@ -2,9 +2,9 @@ using System.Text.Json;
 using System.Text.Encodings.Web;
 using MyBackend.Models.Inspection;
 using MyBackend.Repositories.Inspection;
-using MyBackend.Models.Paged;
+using MyBackend.Models.Utils.Paged;
 using AutoMapper;
-using MyBackend.Models.Api;
+using MyBackend.Models.Utils.Api;
 using MyBackend.Models.Vehicle;
 using MyBackend.Utils.Constants;
 using System.Text.Json.Serialization;
@@ -151,15 +151,12 @@ public class InspectionService : IInspectionService
         }
     }
 
-    public async Task<ApiResponse<InspectionTransaction>> UpdateAsync(InspectionTransaction d)
+    public async Task<ApiResponse<InspectionTransaction>> UpdateStatusAsync(InspectionTransactionHistory d)
     {
         try
         {
-            // string jsonFileContent = await File.ReadAllTextAsync(filePath);
-            // if (d == null) return false;
-            // d.createDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            // isSuccess = true;
-            var result = await _repository.UpdateAsync(d);
+
+            var result = await _repository.UpdateStatusAsync(d);
             if(!result) return new ApiResponse<InspectionTransaction>(){ Message = StatusConstant.ErrorMessage, Status = StatusConstant.ErrorCode };
             return new ApiResponse<InspectionTransaction>(){};
         }

@@ -2,7 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Dapper;
 using MyBackend.Data;
-using MyBackend.Models.Sequence;
+using MyBackend.Models.Utils.Sequence;
 
 namespace MyBackend.Repositories.Sequence;
 
