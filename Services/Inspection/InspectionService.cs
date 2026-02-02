@@ -30,14 +30,14 @@ public class InspectionService : IInspectionService
         _mapper = mapper;
     }
 
-    string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "data.json");
+    //string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "data.json");
 
     public async Task<PagedResult<IEnumerable<InspectionTransaction>>> GetPagedAsync(RequestDataInspection d)
     {
         return await _repository.GetPagedAsync(d);
     }
 
-    public async Task<ApiResponse<InspectionTransaction>?> GetByIdAsync(RequestDataInspection d)
+    public async Task<ApiResponse<InspectionTransaction>> GetByIdAsync(RequestDataInspection d)
     {
         try
         {
@@ -71,14 +71,12 @@ public class InspectionService : IInspectionService
         try
         {
 
-            // Validation
-            if (d.VehicleInfo == null || d.VehicleInfo.Count == 0)
+            // check data
+            if(d.NoSurveyStatus == null || d.NoSurveyStatus == "N")
             {
-                return new ApiResponse<IEnumerable<VehicleInfo>>
-                {
-                    Message = StatusConstant.ErrorMessage,
-                    Status = StatusConstant.ErrorCode
-                };
+                d.NoSurveyStatus = "N";
+                d.NoSurveyCode = null;
+                d.NoSurveyDesc = null;
             }
 
             d.VehicleInfo.ForEach(v => v.CarPlateNo = v.CarPlateNo?.Replace(" ", ""));
@@ -91,14 +89,14 @@ public class InspectionService : IInspectionService
             var carsHistory = (await _repository.GetCarInfo(plates)).ToList();
             _logger.LogInformation("carsHistory: {Json}", JsonSerializer.Serialize(carsHistory, _jsonOptions));
 
-            if (carsHistory.Any())
+            if (carsHistory.Count != 0)
             {
                 // check Duplicate 
                 var duplicates = carsHistory.Where(h =>
                     d.VehicleInfo.Any(v => v.CarPlateNo == h.CarPlateNo && v.CarProvince == h.CarProvince)
                 ).ToList();
 
-                if (duplicates.Any())
+                if (duplicates.Count != 0)
                 {
                     return new ApiResponse<IEnumerable<VehicleInfo>> { Message = StatusConstant.DuplicateMessage, Status = StatusConstant.DuplicateCode, Data = duplicates };
                 }
@@ -130,7 +128,7 @@ public class InspectionService : IInspectionService
                 return req;
             }).ToList();
 
-            var savedData = await _repository.CreateAsync(requests);
+            var savedData = await _repository.CreateAsync(requests, d.FleetStatus);
 
             var result = savedData.Select(s => new VehicleInfo
             {

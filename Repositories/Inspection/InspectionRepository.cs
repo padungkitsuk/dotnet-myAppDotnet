@@ -6,6 +6,7 @@ using MyBackend.Models.Inspection;
 using MyBackend.Repositories.Sequence;
 using MyBackend.Models.Vehicle;
 using System.Text;
+using System.Data.Common;
 
 namespace MyBackend.Repositories.Inspection;
 
@@ -60,13 +61,14 @@ public class InspectionRepository : IInspectionRepository
         return await db.QueryFirstOrDefaultAsync<InspectionTransaction>(sql, new { JobId = d.JobId });
     }
 
-    public async Task<List<InspectionTransaction>> CreateAsync(List<InspectionTransaction> transactions)
+    public async Task<List<InspectionTransaction>> CreateAsync(List<InspectionTransaction> transactions, string? fleetStatus)
     {
         var responseList = new List<InspectionTransaction>();
 
-        using var db = _context.CreateConnection();
-        db.Open();
-        using var trans = db.BeginTransaction();
+        // ใช้ await using เพื่อประสิทธิภาพสูงสุดในการคืนค่า Resource
+        await using var db = (DbConnection)_context.CreateConnection();
+        await db.OpenAsync();
+        await using var trans = await db.BeginTransactionAsync();
 
         try
         {
@@ -84,11 +86,16 @@ public class InspectionRepository : IInspectionRepository
              @carPlateNo, @carProvince, @carBrand, @carModel, @carSubModel, @chassisNumber, 
              @appointmentStatus, @noSurveyStatus, @noSurveyCode, @noSurveyDesc, @jobStatus, @jobDesc);";
 
+            string? newFleetId = (fleetStatus == "Y") ? await _seq.GetNextFleetValue() : null;
+
             foreach (var d in transactions)
             {
                 // JobId
                 string newJobId = await _seq.GetNextSequenceValue();
+
                 d.JobId = newJobId;
+                d.FleetId = newFleetId;
+                d.FleetStatus = fleetStatus;
 
                 // DB
                 await db.ExecuteAsync(sqlInsert, d, transaction: trans);
@@ -97,16 +104,17 @@ public class InspectionRepository : IInspectionRepository
                 {
                     JobId = newJobId,
                     CarPlateNo = d.CarPlateNo,
-                    CarProvince = d.CarProvince
+                    CarProvince = d.CarProvince,
+                    FleetId = newFleetId
                 });
             }
 
-            trans.Commit();
+            await trans.CommitAsync();
             return responseList;
         }
         catch (Exception ex)
         {
-            trans.Rollback();
+            await trans.RollbackAsync();
             _logger.LogError(ex, "Insert Failed: {Message}. All changes rolled back.", ex.Message);
             throw;
         }

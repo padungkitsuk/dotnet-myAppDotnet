@@ -27,27 +27,28 @@ public class SequenceRepository : ISequenceRepository
         using var db = _context.CreateConnection();
         int currentYear = DateTime.Now.Year;
 
-        // One Query for Performance
+        // ใช้ Transaction ระดับ SQL เพื่อป้องกันการ Restart Sequence ซ้ำซ้อน
         const string sql = @"
-        DECLARE @NextVal INT;
-        DECLARE @LastYear INT = (SELECT TOP 1 [year] FROM running_job ORDER BY [year] DESC);
+        SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+        BEGIN TRANSACTION;
+            DECLARE @NextVal INT;
+            DECLARE @LastYear INT = (SELECT TOP 1 [year] FROM running_job WITH (UPDLOCK, HOLDLOCK) ORDER BY [year] DESC);
 
-        -- 1. check for Reset Sequence
-        IF @LastYear IS NULL OR @currentYear > @LastYear
-        BEGIN
-            EXEC('ALTER SEQUENCE runningJobId RESTART WITH 1');
-            SELECT @NextVal = NEXT VALUE FOR runningJobId;
-            INSERT INTO running_job ([year], job_count) VALUES (@currentYear, @NextVal);
-        END
-        ELSE
-        BEGIN
-            -- 2. case nornal
-            SELECT @NextVal = NEXT VALUE FOR runningJobId;
-            UPDATE running_job SET job_count = @NextVal WHERE [year] = @currentYear;
-        END
+            IF @LastYear IS NULL OR @currentYear > @LastYear
+            BEGIN
+                -- รีเซ็ต Sequence เมื่อขึ้นปีใหม่
+                EXEC('ALTER SEQUENCE runningJobId RESTART WITH 1');
+                SELECT @NextVal = NEXT VALUE FOR runningJobId;
+                INSERT INTO running_job ([year], job_count) VALUES (@currentYear, @NextVal);
+            END
+            ELSE
+            BEGIN
+                SELECT @NextVal = NEXT VALUE FOR runningJobId;
+                UPDATE running_job SET job_count = @NextVal WHERE [year] = @currentYear;
+            END
 
-        -- return
-        SELECT @NextVal;";
+            SELECT @NextVal;
+        COMMIT TRANSACTION;";
 
         try
         {
@@ -55,14 +56,34 @@ public class SequenceRepository : ISequenceRepository
             int nextVal = await db.ExecuteScalarAsync<int>(sql, new { currentYear });
 
             //_logger.LogInformation("Generated JobId: {Year}{NextVal:D6}", currentYear, nextVal);
-            _logger.LogInformation("Generated JobId: {Year}/{NextVal}", currentYear, nextVal);
+            string jobId = $"{currentYear}/{nextVal}";
+            _logger.LogInformation("Generated JobId: {JobId}", jobId);
 
             //return $"{currentYear}{nextVal:D6}";
-            return $"{currentYear}/{nextVal}";
+            return jobId;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating sequence for year {Year}", currentYear);
+            throw;
+        }
+    }
+
+
+    public async Task<string> GetNextFleetValue()
+    {
+        using var db = _context.CreateConnection();
+        const string sql = "SELECT NEXT VALUE FOR runningFleetId;";
+
+        try
+        {
+            int nextVal = await db.ExecuteScalarAsync<int>(sql);
+            _logger.LogInformation("Generated fleetId: F{NextVal}", nextVal);
+            return $"F{nextVal}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating fleet");
             throw;
         }
     }
