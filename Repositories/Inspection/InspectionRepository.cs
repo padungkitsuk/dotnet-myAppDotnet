@@ -52,13 +52,16 @@ public class InspectionRepository : IInspectionRepository
         };
     }
 
-    public async Task<InspectionTransaction?> GetByIdAsync(RequestDataInspection d)
+    public async Task<InspectionTransaction> GetByIdAsync(RequestDataInspection d)
     {
         const string sql = @"SELECT job_id, ref_no, job_create_by, FORMAT(job_create_date,'yyyy-MM-dd HH:mm') job_create_date, job_owner, [source], agent_code, bu_code, policy_no, FORMAT(policy_effective_date,'yyyy-MM-dd') policy_effective_date, customer_type, customer_first_name, customer_last_name, customer_phone, payment_info, fleet_status, fleet_id, car_type, car_red_license, car_plate_no, car_province, car_brand, car_model, car_sub_model, chassis_number, appointment_status, no_survey_status, no_survey_code, no_survey_desc, job_status, job_desc
         FROM inspection_transaction 
         WHERE job_id = @JobId";
         using var db = _context.CreateConnection();
-        return await db.QueryFirstOrDefaultAsync<InspectionTransaction>(sql, new { JobId = d.JobId });
+        var result = await db.QueryFirstOrDefaultAsync<InspectionTransaction>(sql, new { JobId = d.JobId });
+        if(result == null) return new InspectionTransaction();
+
+        return result;
     }
 
     public async Task<List<InspectionTransaction>> CreateAsync(List<InspectionTransaction> transactions, string? fleetStatus)
@@ -124,25 +127,39 @@ public class InspectionRepository : IInspectionRepository
     {
         //const string sqlUpdate = @" UPDATE inspection_transaction SET job_desc = @jobDesc, job_update_date = GETDATE() WHERE job_id = @jobId;";
         const string sql = @" 
-        BEGIN TRANSACTION;
-        try
-            DECLARE @LastSeq INT = ISNULL((SELECT MAX(seq) FROM inspection_transaction_history WHERE job_id = @JobId), 0) + 1;
+        BEGIN TRY
+            BEGIN TRANSACTION;
+                
+                -- หา Seq ล่าสุดเฉพาะของ JobId นั้นๆ
+                DECLARE @LastSeq INT;
+                SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 
+                FROM inspection_transaction_history 
+                WHERE job_id = @JobId;
 
-            INSERT INTO inspection_transaction_history 
-            (job_id, seq, create_date, create_by, job_status, job_desc) 
-            VALUES
-            (@JobId, @LastSeq, GETDATE(), @CreateBy, @JobStatus, @JobDesc);
+                -- Insert ประวัติใหม่
+                INSERT INTO inspection_transaction_history 
+                (job_id, seq, create_date, create_by, job_status, job_desc) 
+                VALUES
+                (@JobId, @LastSeq, GETDATE(), @CreateBy, @JobStatus, @JobDesc);
 
-        COMMIT TRANSACTION;
-        catch
-            ROLLBACK TRANSACTION;
-            THROW;
-            ";
+                -- Update สถานะที่ตารางหลัก (เพื่อให้ Status หน้าแอปฯ เป็นปัจจุบัน)
+                UPDATE inspection_transaction 
+                SET job_update_date = GETDATE() 
+                WHERE job_id = @JobId;
+
+            COMMIT TRANSACTION;
+        END TRY
+        BEGIN CATCH
+            -- ตรวจสอบว่ามี Transaction ค้างอยู่หรือไม่ก่อน Rollback
+            IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+            
+            -- โยน Error กลับไปให้ C# Catch ต่อ
+            THROW; 
+        END CATCH;";
 
         using var db = _context.CreateConnection();
         try
         {
-            // หาก d.JobId เป็น null หรือว่าง ให้ดักไว้ก่อนยิง SQL
             if (string.IsNullOrEmpty(d.JobId)) return false;
 
             int rowsAffected = await db.ExecuteAsync(sql, d);
@@ -167,7 +184,20 @@ public class InspectionRepository : IInspectionRepository
 
         // ส่ง carPlateNos เข้าไปตรงๆ Dapper จะจัดการที่เหลือให้
         var result = await db.QueryAsync<VehicleInfo>(sql, new { carPlateNos });
-        return result.ToList();
+        return [.. result];
+    }
+
+    public async Task<List<JobList>> GetJobListInfo(string fleetId)
+    {
+        const string sql = @"
+        select job_id, car_plate_no  
+        from inspection_transaction 
+        where fleet_id = @fleetId";
+
+        using var db = _context.CreateConnection();
+
+        var result = await db.QueryAsync<JobList>(sql, new { fleetId });
+        return [.. result];
     }
 
     public async Task<string> GetSeq()

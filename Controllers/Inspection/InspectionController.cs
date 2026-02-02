@@ -41,7 +41,7 @@ public class InspectionController : ControllerBase
     }
 
     [HttpPost("detail")]
-    public async Task<ActionResult<ApiResponse<InspectionTransaction>>> GetById(RequestDataInspection d)
+    public async Task<ActionResult<ApiResponse<InspectionTransactionDetail>>> GetById(RequestDataInspection d)
     {
         var result = await _inspectService.GetByIdAsync(d);
 
@@ -51,7 +51,7 @@ public class InspectionController : ControllerBase
             "01" => Conflict(result),
             "02" => NotFound(result),
             "99" => StatusCode(500, result),
-            _ => BadRequest(new ApiResponse<InspectionTransaction>
+            _ => BadRequest(new ApiResponse<InspectionTransactionDetail>
             {
                 Message = "Unknown Error",
                 Status = result.Status

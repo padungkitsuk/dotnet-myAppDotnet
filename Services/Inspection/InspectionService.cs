@@ -37,25 +37,37 @@ public class InspectionService : IInspectionService
         return await _repository.GetPagedAsync(d);
     }
 
-    public async Task<ApiResponse<InspectionTransaction>> GetByIdAsync(RequestDataInspection d)
+    public async Task<ApiResponse<InspectionTransactionDetail>> GetByIdAsync(RequestDataInspection d)
     {
         try
         {
-            if(string.IsNullOrEmpty(d.JobId)) return new ApiResponse<InspectionTransaction>() {  Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
-            
-            var result = await _repository.GetByIdAsync(d);
-            _logger.LogInformation("GetByIdAsync id: {id} res: {Json}", d.JobId, JsonSerializer.Serialize(result, _jsonOptions));
-            if(result == null) return new ApiResponse<InspectionTransaction>() {  Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
+            if (string.IsNullOrEmpty(d.JobId))
+                return new ApiResponse<InspectionTransactionDetail> { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
 
-            return new ApiResponse<InspectionTransaction>()
+            var detail = await _repository.GetByIdAsync(d);
+            if (detail == null)
+                return new ApiResponse<InspectionTransactionDetail> { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
+
+            _logger.LogInformation("GetByIdAsync id: {id} res: {Json}", d.JobId, JsonSerializer.Serialize(detail, _jsonOptions));
+
+            var result = new InspectionTransactionDetail { Detail = detail };
+
+            if (detail.FleetStatus == "Y" && !string.IsNullOrEmpty(detail.FleetId))
             {
-                Data = result
-            };
+                result.JobList = await _repository.GetJobListInfo(detail.FleetId);
+            }
+            else
+            {
+                // กรณีไม่ใช่ Fleet หรือไม่มี FleetId ให้แสดงแค่คันเดียว
+                result.JobList = [new() { JobId = detail.JobId ?? "", CarPlateNo = detail.CarPlateNo ?? "" }];
+            }
+
+            return new ApiResponse<InspectionTransactionDetail> { Data = result };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "เกิดข้อผิดพลาดใน GetByIdAsync");
-            return new ApiResponse<InspectionTransaction>()
+            return new ApiResponse<InspectionTransactionDetail>()
             {
                 Message = StatusConstant.ErrorMessage,
                 Status = StatusConstant.ErrorCode
@@ -72,7 +84,7 @@ public class InspectionService : IInspectionService
         {
 
             // check data
-            if(d.NoSurveyStatus == null || d.NoSurveyStatus == "N")
+            if (d.NoSurveyStatus == null || d.NoSurveyStatus == "N")
             {
                 d.NoSurveyStatus = "N";
                 d.NoSurveyCode = null;
@@ -137,7 +149,7 @@ public class InspectionService : IInspectionService
                 JobId = s.JobId
             });
 
-            return new ApiResponse<IEnumerable<VehicleInfo>>{ Data = result };
+            return new ApiResponse<IEnumerable<VehicleInfo>> { Data = result };
         }
         catch (Exception ex)
         {
@@ -157,8 +169,8 @@ public class InspectionService : IInspectionService
         {
 
             var result = await _repository.UpdateStatusAsync(d);
-            if(!result) return new ApiResponse<InspectionTransaction>(){ Message = StatusConstant.ErrorMessage, Status = StatusConstant.ErrorCode };
-            return new ApiResponse<InspectionTransaction>(){};
+            if (!result) return new ApiResponse<InspectionTransaction>() { Message = StatusConstant.ErrorMessage, Status = StatusConstant.ErrorCode };
+            return new ApiResponse<InspectionTransaction>() { };
         }
         catch (Exception ex)
         {
