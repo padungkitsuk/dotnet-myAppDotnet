@@ -59,7 +59,7 @@ public class InspectionRepository : IInspectionRepository
         WHERE job_id = @JobId";
         using var db = _context.CreateConnection();
         var result = await db.QueryFirstOrDefaultAsync<InspectionTransaction>(sql, new { JobId = d.JobId });
-        if(result == null) return new InspectionTransaction();
+        if (result == null) return new InspectionTransaction();
 
         return result;
     }
@@ -97,6 +97,7 @@ public class InspectionRepository : IInspectionRepository
                 string newJobId = await _seq.GetNextSequenceValue();
 
                 d.JobId = newJobId;
+                d.RefNo = string.IsNullOrEmpty(d.RefNo) ? await _seq.GetNextRefNoValue() : d.RefNo ;
                 d.FleetId = newFleetId;
                 d.FleetStatus = fleetStatus;
 
@@ -125,35 +126,36 @@ public class InspectionRepository : IInspectionRepository
 
     public async Task<bool> UpdateStatusAsync(InspectionTransactionHistory d)
     {
-        //const string sqlUpdate = @" UPDATE inspection_transaction SET job_desc = @jobDesc, job_update_date = GETDATE() WHERE job_id = @jobId;";
         const string sql = @" 
         BEGIN TRY
-            BEGIN TRANSACTION;
-                
-                -- หา Seq ล่าสุดเฉพาะของ JobId นั้นๆ
-                DECLARE @LastSeq INT;
-                SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 
-                FROM inspection_transaction_history 
-                WHERE job_id = @JobId;
+            IF EXISTS (SELECT 1 FROM inspection_transaction WHERE job_id = @JobId)
+            BEGIN
+                BEGIN TRANSACTION;
+                    
+                    DECLARE @LastSeq INT;
+                    SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 
+                    FROM inspection_transaction_history 
+                    WHERE job_id = @JobId;
 
-                -- Insert ประวัติใหม่
-                INSERT INTO inspection_transaction_history 
-                (job_id, seq, create_date, create_by, job_status, job_desc) 
-                VALUES
-                (@JobId, @LastSeq, GETDATE(), @CreateBy, @JobStatus, @JobDesc);
+                    INSERT INTO inspection_transaction_history 
+                    (job_id, seq, create_date, create_by, job_status, job_desc) 
+                    VALUES
+                    (@JobId, @LastSeq, GETDATE(), @CreateBy, @JobStatus, @JobDesc);
 
-                -- Update สถานะที่ตารางหลัก (เพื่อให้ Status หน้าแอปฯ เป็นปัจจุบัน)
-                UPDATE inspection_transaction 
-                SET job_update_date = GETDATE() 
-                WHERE job_id = @JobId;
+                    UPDATE inspection_transaction 
+                    SET job_update_date = GETDATE()
+                    WHERE job_id = @JobId;
 
-            COMMIT TRANSACTION;
+                COMMIT TRANSACTION;
+                SELECT 1; -- คืนค่าว่าทำงานสำเร็จ
+            END
+            ELSE
+            BEGIN
+                SELECT 0; -- คืนค่าว่าไม่พบ JobId (จะทำให้ rowsAffected เป็น 0)
+            END
         END TRY
         BEGIN CATCH
-            -- ตรวจสอบว่ามี Transaction ค้างอยู่หรือไม่ก่อน Rollback
             IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-            
-            -- โยน Error กลับไปให้ C# Catch ต่อ
             THROW; 
         END CATCH;";
 
@@ -162,8 +164,9 @@ public class InspectionRepository : IInspectionRepository
         {
             if (string.IsNullOrEmpty(d.JobId)) return false;
 
-            int rowsAffected = await db.ExecuteAsync(sql, d);
-            return rowsAffected > 0;
+            int result = await db.ExecuteScalarAsync<int>(sql, d);
+
+            return result > 0;
         }
         catch (Exception ex)
         {
@@ -204,4 +207,99 @@ public class InspectionRepository : IInspectionRepository
     {
         return await _seq.GetNextSequenceValue();
     }
+
+    public async Task<List<InspectionTransaction>> UpdateTask001Async(List<InspectionTaskRequest> tasks)
+    {
+        var responseList = new List<InspectionTransaction>();
+        using var db = (DbConnection)_context.CreateConnection();
+        await db.OpenAsync();
+        using var trans = await db.BeginTransactionAsync();
+
+        // SQL ไม่ต้องมี Transaction ซ้อน
+        const string sql = @" 
+        IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND round = '1')
+        BEGIN
+            INSERT INTO inspection_task_001 
+            (job_id, round, task_desc, task_complete_status, task_complete_date, task_status, appointment_datetime, task_detail, task_create_date, task_create_by) 
+            VALUES
+            (@JobId, '1', @TaskDesc,   @TaskCompleteStatus,  @TaskCompleteDate,  @TaskStatus, @AppointmentDatetime, @TaskDetail, GETDATE(),        @TaskCreateBy);
+            SELECT 1;
+        END
+        ELSE
+        BEGIN
+            UPDATE inspection_task_001 SET 
+                task_complete_status = @TaskCompleteStatus, 
+                task_complete_date = @TaskCompleteDate,
+                task_status = @TaskStatus,
+                appointment_datetime = @AppointmentDatetime,
+                task_detail = @TaskDetail,
+                task_update_date = GETDATE(),
+                task_update_by = @TaskCreateBy
+            WHERE job_id = @JobId AND round = '1';
+            SELECT 1;
+        END";
+
+        try
+        {
+            foreach (var d in tasks)
+            {
+                // รันทีละตัวภายใต้ Transaction เดียวกัน
+                int result = await db.ExecuteScalarAsync<int>(sql, d, transaction: trans);
+
+                if (result > 0)
+                {
+                    responseList.Add(new InspectionTransaction { JobId = d.JobId });
+                }
+            }
+
+            await trans.CommitAsync();
+            return responseList;
+        }
+        catch (Exception ex)
+        {
+            await trans.RollbackAsync();
+            _logger.LogError(ex, "UpdateTaskAsync Repository Failed");
+            throw;
+        }
+    }
+
+
+    public async Task<IEnumerable<InspectionTaskDetail>> GetTaskDetailAsync(string jobId)
+    {
+
+        var sql = new StringBuilder(@"
+        SELECT 
+            '1' as task,
+            task_desc,
+            task_complete_status,
+            case when task_complete_status = '002' 
+                then 'Complete' 
+                else 'In Progress' 
+            end as task_complete_status_desc,
+            case when task_complete_status = '002' 
+                then format(task_complete_date,'yyyy-MM-dd HH:mm') 
+                else null          
+            end as  task_complete_date,
+            format(appointment_datetime,'yyyy-MM-dd HH:mm') as appointment_datetime,
+            it01.task_status ,
+            mjs.state_desc as task_status_desc,
+            task_detail 
+        FROM inspection_task_001 it01 
+        LEFT  JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
+        WHERE job_id = @jobId and round = '1' 
+");
+        // if (!string.IsNullOrEmpty(d.JobId))
+        // {
+        //     sql.Append(" and job_id = '" + d.JobId + "' ");
+        // }
+
+        // sql.Append(" ORDER BY job_id ");
+        using var db = _context.CreateConnection();
+
+        var allData = await db.QueryAsync<InspectionTaskDetail>(sql.ToString(), new { jobId });
+        
+        return allData;
+    }
+
+
 }

@@ -20,6 +20,9 @@ namespace MyBackend.Utils.Constants
         public const string NotExpiredMessage = "Data Expired.";
         public const string NotExpiredCode = "04";
 
+        public const string InvalidInfoMessage = " Invalid.";
+        public const string InvalidInfoCode = "05";
+
 
 
         // ======================= other ========================= //

@@ -9,6 +9,7 @@ using MyBackend.Models.Vehicle;
 using MyBackend.Utils.Constants;
 using System.Text.Json.Serialization;
 using System.Collections.Immutable;
+using System.Globalization;
 
 namespace MyBackend.Services.Inspection;
 
@@ -83,6 +84,11 @@ public class InspectionService : IInspectionService
         try
         {
 
+            //Validate
+            var isValid = d.FleetStatus == "Y" ? (d.VehicleInfo.Count >= 2) : (d.VehicleInfo.Count == 1);
+            if (!isValid)
+                return new ApiResponse<IEnumerable<VehicleInfo>> { Message = "VehicleInfo" + StatusConstant.InvalidInfoMessage, Status = StatusConstant.InvalidInfoCode };
+
             // check data
             if (d.NoSurveyStatus == null || d.NoSurveyStatus == "N")
             {
@@ -91,7 +97,16 @@ public class InspectionService : IInspectionService
                 d.NoSurveyDesc = null;
             }
 
-            d.VehicleInfo.ForEach(v => v.CarPlateNo = v.CarPlateNo?.Replace(" ", ""));
+            // Corporate customers
+            if (d.CustomerInfo?.CustomerType == "C") d.CustomerInfo.CustomerLastName = null;
+
+            d.VehicleInfo.ForEach(v =>{
+                v.CarPlateNo = v.CarPlateNo?.Replace(" ", "");
+                if (v.CarRedLicense == "Y"){
+                    v.CarPlateNo = "ใหม่";
+                    v.CarProvince = "99";
+                }
+            });
 
             var plates = (d.FleetStatus == "Y" ? d.VehicleInfo.Select(v => v.CarPlateNo) : d.VehicleInfo.Take(1).Select(v => v.CarPlateNo))
             .Where(p => !string.IsNullOrEmpty(p))
@@ -163,19 +178,64 @@ public class InspectionService : IInspectionService
         }
     }
 
-    public async Task<ApiResponse<InspectionTransaction>> UpdateStatusAsync(InspectionTransactionHistory d)
+    public async Task<ApiResponse<IEnumerable<InspectionTaskDetail>>> GetTaskDetailAsync(string jobId)
+    {
+        var result = await _repository.GetTaskDetailAsync(jobId);
+        return new ApiResponse<IEnumerable<InspectionTaskDetail>>()
+        {
+            Data = result
+        };
+    }
+
+    public async Task<ApiResponse<IEnumerable<InspectionTransaction>>> UpdateTaskAsync(InspectionTaskRequest d)
     {
         try
         {
+            var taskDesc = d.Task switch
+            {
+                "1" => "ติดตามนัดหมายลูกค้า",
+                "2" => "ส่ง SV ออกตรวจสอบ",
+                "3" => "ติดตาม SV",
+                "4" => "รอผลตรวจรถยนต์",
+                "5" => "ติดตามนัดหมายลูกค้า",
+                "6" => "ส่ง SV ออกตรวจสอบ",
+                "7" => "ติดตาม SV",
+                "8" => "รอผลตรวจรถยนต์",
+                _ => ""
+            };
 
-            var result = await _repository.UpdateStatusAsync(d);
-            if (!result) return new ApiResponse<InspectionTransaction>() { Message = StatusConstant.ErrorMessage, Status = StatusConstant.ErrorCode };
-            return new ApiResponse<InspectionTransaction>() { };
+            //001=In Progress, 002=Complete
+            var (taskCompleteStatus, taskCompleteDate) = d.Action switch
+            {
+                "complete" => ("002", DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)),
+                _          => ("001", (string?)null)
+            };
+
+            if (d.JobList == null || d.JobList.Count == 0)
+                return new ApiResponse<IEnumerable<InspectionTransaction>> { Message = "No jobs to update", Status = StatusConstant.NotFoundCode };
+
+            var tasks = new List<InspectionTaskRequest>();
+            foreach (var jobId in d.JobList)
+            {
+                var newTask = d.Clone();
+                newTask.JobId = jobId;      // JobId
+                newTask.JobList = [];
+                newTask.TaskDesc = taskDesc;
+                newTask.TaskCompleteStatus = taskCompleteStatus;
+                newTask.TaskCompleteDate = taskCompleteDate;
+                newTask.Action = null;
+                tasks.Add(newTask);
+            }
+            _logger.LogInformation("tasks: {Json}", JsonSerializer.Serialize(tasks, _jsonOptions));
+
+            var result = await _repository.UpdateTask001Async(tasks);
+            if (result == null || result.Count == 0) return new ApiResponse<IEnumerable<InspectionTransaction>>() { Message = StatusConstant.ErrorMessage, Status = StatusConstant.ErrorCode };
+            return new ApiResponse<IEnumerable<InspectionTransaction>>() { Data = result };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "เกิดข้อผิดพลาดในการ Update: {Message}", ex.Message);
-            return new ApiResponse<InspectionTransaction>()
+            _logger.LogError(ex, "เกิดข้อผิดพลาดในการ UpdateTaskAsync: {Message}", ex.Message);
+            return new ApiResponse<IEnumerable<InspectionTransaction>>()
             {
                 Message = StatusConstant.ErrorMessage,
                 Status = StatusConstant.ErrorCode

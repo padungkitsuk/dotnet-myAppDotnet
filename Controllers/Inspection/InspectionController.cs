@@ -69,6 +69,7 @@ public class InspectionController : ControllerBase
             "00" => Ok(result),
             "01" => Conflict(result),
             "02" => NotFound(result),
+            "05" => Conflict(result),
             "99" => StatusCode(500, result),
             _ => BadRequest(new ApiResponse<IEnumerable<VehicleInfo>>
             {
@@ -79,10 +80,10 @@ public class InspectionController : ControllerBase
         };
     }
 
-    [HttpPost("update/status")]
-    public async Task<ActionResult<ApiResponse<InspectionTransaction>>> UpdateStatusAsync(InspectionTransactionHistory d)
+    [HttpPost("detail/task")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTransaction>>>> GetTaskDetailAsync(InspectionRequestJobId d)
     {
-        var result = await _inspectService.UpdateStatusAsync(d);
+        var result = await _inspectService.GetTaskDetailAsync(d.JobId);
 
         return result.Status switch
         {
@@ -90,7 +91,26 @@ public class InspectionController : ControllerBase
             "01" => Conflict(result),
             "02" => NotFound(result),
             "99" => StatusCode(500, result),
-            _ => BadRequest(new ApiResponse<InspectionTransaction>
+            _ => BadRequest(new ApiResponse<IEnumerable<InspectionTransaction>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
+    [HttpPost("update/task")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTransaction>>>> UpdateTaskAsync(InspectionTaskRequest d)
+    {
+        var result = await _inspectService.UpdateTaskAsync(d);
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new ApiResponse<IEnumerable<InspectionTransaction>>
             {
                 Message = "Unknown Error",
                 Status = result.Status

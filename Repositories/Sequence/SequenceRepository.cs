@@ -88,5 +88,23 @@ public class SequenceRepository : ISequenceRepository
         }
     }
 
+        public async Task<string> GetNextRefNoValue()
+    {
+        using var db = _context.CreateConnection();
+        const string sql = "SELECT NEXT VALUE FOR runningRefId;";
+
+        try
+        {
+            int nextVal = await db.ExecuteScalarAsync<int>(sql);
+            _logger.LogInformation("Generated RefNo: {NextVal}", nextVal);
+            return $"{nextVal}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating RefNo");
+            throw;
+        }
+    }
+
 
 }

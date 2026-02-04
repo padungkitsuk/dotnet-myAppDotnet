@@ -5,6 +5,7 @@ using MyBackend.Data;
 using MyBackend.Repositories.Inspection;
 using MyBackend.Repositories.Sequence;
 using MyBackend.Services.Inspection;
+using MyBackend.Services.Master;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,6 +36,8 @@ builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlServer(connectionSt
 builder.Services.AddScoped<IInspectionRepository, InspectionRepository>();
 builder.Services.AddScoped<IInspectionService, InspectionService>();
 builder.Services.AddScoped<ISequenceRepository, SequenceRepository>();
+builder.Services.AddScoped<IMasterDataRepository, MasterDataRepository>();
+builder.Services.AddScoped<IMasterService, MasterService>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();

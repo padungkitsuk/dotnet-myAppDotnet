@@ -9,6 +9,7 @@ public interface IInspectionService {
     Task<PagedResult<IEnumerable<InspectionTransaction>>> GetPagedAsync(RequestDataInspection d);
     Task<ApiResponse<InspectionTransactionDetail>> GetByIdAsync(RequestDataInspection d);
     Task<ApiResponse<IEnumerable<VehicleInfo>>> CreateAsync(InspectionRequest d);
-    Task<ApiResponse<InspectionTransaction>> UpdateStatusAsync(InspectionTransactionHistory d);
+    Task<ApiResponse<IEnumerable<InspectionTaskDetail>>> GetTaskDetailAsync(string jobId);
+    Task<ApiResponse<IEnumerable<InspectionTransaction>>> UpdateTaskAsync(InspectionTaskRequest d);
     Task<string> GetSeq();
 }
