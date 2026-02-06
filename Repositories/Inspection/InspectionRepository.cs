@@ -465,16 +465,18 @@ public class InspectionRepository : IInspectionRepository
         IF NOT EXISTS (SELECT 1 FROM inspection_task_002 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_002 
-            (job_id, round, task_desc, task_complete_status, task_status, task_detail, task_create_date, task_create_by,
+            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
             survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2) 
             VALUES
-            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy,
+            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy,
 			@SurveyDate, @SurveyCompanyCode,  @SurveyCompanyType,  @SurveyLocationRegion,  @SurveyLocationProvince,  @SurveyLocationDistrict,  @SurveyPrice1,  @SurveyPrice2);
         END
         ELSE
         BEGIN
             UPDATE inspection_task_002 SET 
                 task_complete_status = @TaskCompleteStatus, 
+                task_complete_date = @TaskCompleteDate,
+                task_complete_by = @TaskCompleteBy,
                 task_status = @TaskStatus,
                 task_detail = @TaskDetail,
                 task_update_date = GETDATE(),
@@ -534,14 +536,16 @@ public class InspectionRepository : IInspectionRepository
         IF NOT EXISTS (SELECT 1 FROM inspection_task_003 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_003 
-            (job_id, round, task_desc, task_complete_status, task_status, task_detail, task_create_date, task_create_by) 
+            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by) 
             VALUES
-            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy);
+            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy,  @TaskStatus,  @TaskDetail, GETDATE(),       @TaskCreateBy);
         END
         ELSE
         BEGIN
             UPDATE inspection_task_003 SET 
                 task_complete_status = @TaskCompleteStatus, 
+                task_complete_date = @TaskCompleteDate,
+                task_complete_by = @TaskCompleteBy,
                 task_status = @TaskStatus,
                 task_detail = @TaskDetail,
                 task_update_date = GETDATE(),
@@ -594,14 +598,16 @@ public class InspectionRepository : IInspectionRepository
         IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_004 
-            (job_id, round, task_desc, task_complete_status, task_status, task_detail, task_create_date, task_create_by) 
+            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by) 
             VALUES
-            (@JobId, '1', @TaskDesc, @TaskCompleteStatus, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy);
+            (@JobId, '1', @TaskDesc, @TaskCompleteStatus,    @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy);
         END
         ELSE
         BEGIN
             UPDATE inspection_task_004 SET 
                 task_complete_status = @TaskCompleteStatus, 
+                task_complete_date = @TaskCompleteDate,
+                task_complete_by = @TaskCompleteBy,
                 task_status = @TaskStatus,
                 task_detail = @TaskDetail,
                 task_update_date = GETDATE(),
