@@ -1,7 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
-using MyBackend.Models.Customer;
-using MyBackend.Models.Vehicle;
 
 namespace MyBackend.Models.Inspection
 {
@@ -29,6 +27,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("taskCompleteDate")]
         public string? TaskCompleteDate { get; set; }
 
+        [JsonPropertyName("taskCompleteBy")]
+        public string? TaskCompleteBy { get; set; }
+
         [JsonPropertyName("taskStatus")]
         public string? TaskStatus { get; set; }
 
@@ -41,10 +42,89 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("taskCreateBy")]
         public string? TaskCreateBy { get; set; }
 
+
+
+        /// add request for => task002
+        [JsonPropertyName("surveyDate")]
+        public string? SurveyDate { get; set; }
+
+        [JsonPropertyName("surveyCompanyCode")]
+        public string? SurveyCompanyCode { get; set; }
+
+        [JsonPropertyName("surveyCompanyType")]
+        public string? SurveyCompanyType { get; set; }
+
+        [JsonPropertyName("surveyLocationRegion")]
+        public string? SurveyLocationRegion { get; set; }
+
+        [JsonPropertyName("surveyLocationProvince")]
+        public string? SurveyLocationProvince { get; set; }
+
+        [JsonPropertyName("surveyLocationDistrict")]
+        public string? SurveyLocationDistrict { get; set; }
+
+        [JsonPropertyName("surveyPrice1")]
+        public decimal? SurveyPrice1 { get; set; }
+
+        [JsonPropertyName("surveyPrice2")]
+        public decimal? SurveyPrice2 { get; set; }
+
+
+        /// add request for => task004
+        [JsonPropertyName("resultReport")]
+        public string? ResultReport { get; set; }
+
+        [JsonPropertyName("verifyResultDatetime")]
+        public string? VerifyResultDatetime { get; set; }
+
+        [JsonPropertyName("mileNumber")]
+        public string? MileNumber { get; set; }
+
+        [JsonPropertyName("inspectionDatetime")]
+        public string? InspectionDatetime { get; set; }
+
+        [JsonPropertyName("carInspectionResult")]
+        public string? CarInspectionResult { get; set; }
+
+        [JsonPropertyName("carType")]
+        public string? CarType { get; set; }
+
+        [JsonPropertyName("spare")]
+        public string? Spare { get; set; }
+
+        [JsonPropertyName("gas")]
+        public string? Gas { get; set; }
+
+        [JsonPropertyName("gasNumber")]
+        public int? GasNumber { get; set; }
+
+        [JsonPropertyName("gasType")]
+        public string? GasType { get; set; }
+
+        [JsonPropertyName("gasPrice")]
+        public decimal? GasPrice { get; set; }
+
+        [JsonPropertyName("modifyVehicle")]
+        public string? ModifyVehicle { get; set; }
+
+        /// if modifyVehicle => Y
+        [JsonPropertyName("modifyVehicleList")]
+        public List<InspectionModifyVehicle>? ModifyVehicleList { get; set; } = [];
+
+
+
+        /// remark code
+        [JsonPropertyName("remarkCode")]
+        public string? RemarkCode { get; set; }
+
+
+
+        /// action
         [JsonPropertyName("action")]
         public string? Action { get; set; }
 
-        //clone
+
+        /// clone
         public InspectionTaskRequest Clone()
         {
             return (InspectionTaskRequest)this.MemberwiseClone();

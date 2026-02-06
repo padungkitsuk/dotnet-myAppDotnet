@@ -35,5 +35,31 @@ namespace MyBackend.Models.Inspection
         public string? TaskDetail { get; set; }
 
 
+        // 2
+        [JsonPropertyName("surveyDate")]
+        public string? SurveyDate { get; set; }
+
+        [JsonPropertyName("surveyCompanyCode")]
+        public string? SurveyCompanyCode { get; set; }
+
+        [JsonPropertyName("surveyCompanyType")]
+        public string? SurveyCompanyType { get; set; }
+
+        [JsonPropertyName("surveyLocationRegion")]
+        public string? SurveyLocationRegion { get; set; }
+
+        [JsonPropertyName("surveyLocationProvince")]
+        public string? SurveyLocationProvince { get; set; }
+
+        [JsonPropertyName("surveyLocationDistrict")]
+        public string? SurveyLocationDistrict { get; set; }
+
+        [JsonPropertyName("surveyPrice1")]
+        public decimal? SurveyPrice1 { get; set; }
+
+        [JsonPropertyName("surveyPrice2")]
+        public decimal? SurveyPrice2 { get; set; }
+
+
     }
 }

@@ -80,6 +80,25 @@ public class InspectionController : ControllerBase
         };
     }
 
+    [HttpPost("job/history")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTransactionHistory>>>> GetJobHistory(InspectionRequestJobId d)
+    {
+        var result = await _inspectService.GetJobHistory(d.JobId);
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new ApiResponse<IEnumerable<InspectionTransactionHistory>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
     [HttpPost("detail/task")]
     public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTransaction>>>> GetTaskDetailAsync(InspectionRequestJobId d)
     {
@@ -118,11 +137,11 @@ public class InspectionController : ControllerBase
         };
     }
 
-    [HttpPost("seq")]
-    public async Task<ActionResult<ApiResponse<string>>> GetSeq()
-    {
-        var result = await _inspectService.GetSeq();
-        return Ok(new ApiResponse<string> { Data = result });
-    }
+    // [HttpPost("seq")]
+    // public async Task<ActionResult<ApiResponse<string>>> GetSeq()
+    // {
+    //     var result = await _inspectService.GetSeq();
+    //     return Ok(new ApiResponse<string> { Data = result });
+    // }
 
 }

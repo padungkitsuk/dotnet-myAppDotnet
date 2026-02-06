@@ -170,6 +170,26 @@ public class MasterService : IMasterService
         }
     }
 
+    public async Task<ApiResponse<IEnumerable<MasterDropdown>>> GetRemarkMethodList()
+    {
+        try
+        {
+
+            var result = await _repository.GetRemarkMethodList();
+            if (result == null || result.Count == 0) return new ApiResponse<IEnumerable<MasterDropdown>>() { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
+            return new ApiResponse<IEnumerable<MasterDropdown>>() { Data = result };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "เกิดข้อผิดพลาดในการ GetRemarkMethodList: {Message}", ex.Message);
+            return new ApiResponse<IEnumerable<MasterDropdown>>()
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
+        }
+    }
+
 
 
 

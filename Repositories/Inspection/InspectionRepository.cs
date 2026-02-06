@@ -87,7 +87,13 @@ public class InspectionRepository : IInspectionRepository
              @policyNo, @policyEffectiveDate, @customerType, @customerFirstName, @customerLastName, 
              @customerPhone, @paymentInfo, @fleetStatus, @fleetId, @carType, @carRedLicense, 
              @carPlateNo, @carProvince, @carBrand, @carModel, @carSubModel, @chassisNumber, 
-             @appointmentStatus, @noSurveyStatus, @noSurveyCode, @noSurveyDesc, @jobStatus, @jobDesc);";
+             @appointmentStatus, @noSurveyStatus, @noSurveyCode, @noSurveyDesc, @jobStatus, @jobDesc);
+             
+            INSERT INTO inspection_transaction_history 
+             (job_id, seq, create_date, create_by,    status,   job_status, job_desc) 
+            VALUES
+             (@JobId, 1,   GETDATE(),   @jobCreateBy, N'งานใหม่', '-',            '-');
+             ";
 
             string? newFleetId = (fleetStatus == "Y") ? await _seq.GetNextFleetValue() : null;
 
@@ -97,7 +103,7 @@ public class InspectionRepository : IInspectionRepository
                 string newJobId = await _seq.GetNextSequenceValue();
 
                 d.JobId = newJobId;
-                d.RefNo = string.IsNullOrEmpty(d.RefNo) ? await _seq.GetNextRefNoValue() : d.RefNo ;
+                d.RefNo = string.IsNullOrEmpty(d.RefNo) ? await _seq.GetNextRefNoValue() : d.RefNo;
                 d.FleetId = newFleetId;
                 d.FleetStatus = fleetStatus;
 
@@ -124,7 +130,7 @@ public class InspectionRepository : IInspectionRepository
         }
     }
 
-    public async Task<bool> UpdateStatusAsync(InspectionTransactionHistory d)
+    public async Task<bool> UpdateJobHistory(InspectionTransactionHistory d)
     {
         const string sql = @" 
         BEGIN TRY
@@ -133,18 +139,14 @@ public class InspectionRepository : IInspectionRepository
                 BEGIN TRANSACTION;
                     
                     DECLARE @LastSeq INT;
-                    SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 
-                    FROM inspection_transaction_history 
-                    WHERE job_id = @JobId;
+                    SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 
                     INSERT INTO inspection_transaction_history 
-                    (job_id, seq, create_date, create_by, job_status, job_desc) 
+                    (job_id, seq,      create_date, create_by,  status,  job_status, job_desc) 
                     VALUES
-                    (@JobId, @LastSeq, GETDATE(), @CreateBy, @JobStatus, @JobDesc);
+                    (@JobId, @LastSeq, GETDATE(),   @CreateBy,  @Status, @JobStatus, @JobDesc);
 
-                    UPDATE inspection_transaction 
-                    SET job_update_date = GETDATE()
-                    WHERE job_id = @JobId;
+                    UPDATE inspection_transaction SET job_update_date = GETDATE() WHERE job_id = @JobId;
 
                 COMMIT TRANSACTION;
                 SELECT 1; -- คืนค่าว่าทำงานสำเร็จ
@@ -208,7 +210,187 @@ public class InspectionRepository : IInspectionRepository
         return await _seq.GetNextSequenceValue();
     }
 
-    public async Task<List<InspectionTransaction>> UpdateTask001Async(List<InspectionTaskRequest> tasks)
+    public async Task<IEnumerable<InspectionTaskDetail>> GetTaskDetailAsync(string jobId)
+    {
+
+        var sql = new StringBuilder(@"
+            SELECT 
+                '1' as task,
+                it01.task_desc,
+                it01.task_complete_status,
+                case when it01.task_complete_status = '002' 
+                    then 'Complete' 
+                    else 'In Progress' 
+                end as task_complete_status_desc,
+                case when it01.task_complete_status = '002' 
+                    then format(it01.task_complete_date,'yyyy-MM-dd HH:mm') 
+                    else null          
+                end as  task_complete_date,
+                format(it01.appointment_datetime,'yyyy-MM-dd HH:mm') as appointment_datetime,
+                it01.task_status ,
+                mjs.state_desc as task_status_desc,
+                it01.task_detail ,
+                null survey_date, null survey_company_code, null survey_company_type, null survey_location_region, null survey_location_province, null survey_location_district, null survey_price1, null survey_price2
+            FROM inspection_task_001 it01 
+            LEFT  JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
+            WHERE it01.job_id = @jobId and round = '1' 
+        UNION ALL 
+            SELECT 
+                '2' as task,
+                it02.task_desc,
+                it02.task_complete_status,
+                case when it02.task_complete_status = '002' 
+                    then 'Complete' 
+                    else 'In Progress' 
+                end as task_complete_status_desc,
+                case when it02.task_complete_status = '002' 
+                    then format(it02.task_complete_date,'yyyy-MM-dd HH:mm') 
+                    else null          
+                end as  task_complete_date,
+                null ,
+                it02.task_status ,
+                mjs.state_desc as task_status_desc,
+                it02.task_detail ,
+                format(it02.survey_date,'yyyy-MM-dd HH:mm') survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2
+            FROM inspection_task_002 it02 
+            LEFT  JOIN  master_job_state mjs on mjs.group_code ='03' and mjs.state_code = it02.task_status
+            WHERE it02.job_id = @jobId and round = '1'
+        UNION ALL 
+            SELECT 
+                '3' as task,
+                it03.task_desc,
+                it03.task_complete_status,
+                case when it03.task_complete_status = '002' 
+                    then 'Complete' 
+                    else 'In Progress' 
+                end as task_complete_status_desc,
+                case when it03.task_complete_status = '002' 
+                    then format(it03.task_complete_date,'yyyy-MM-dd HH:mm') 
+                    else null          
+                end as  task_complete_date,
+                null ,
+                it03.task_status ,
+                mjs.state_desc as task_status_desc,
+                it03.task_detail ,
+                null , null , null , null , null , null , null , null
+            FROM inspection_task_003 it03 
+            LEFT  JOIN  master_job_state mjs on mjs.group_code ='04' and mjs.state_code = it03.task_status
+            WHERE it03.job_id = @jobId and round = '1'
+        UNION ALL 
+            SELECT 
+                '4' as task,
+                it04.task_desc,
+                it04.task_complete_status,
+                case when it04.task_complete_status = '002' 
+                    then 'Complete' 
+                    else 'In Progress' 
+                end as task_complete_status_desc,
+                case when it04.task_complete_status = '002' 
+                    then format(it04.task_complete_date,'yyyy-MM-dd HH:mm') 
+                    else null          
+                end as  task_complete_date,
+                null ,
+                it04.task_status ,
+                mjs.state_desc as task_status_desc,
+                it04.task_detail ,
+                null , null , null , null , null , null , null , null
+            FROM inspection_task_004 it04 
+            LEFT  JOIN  master_job_state mjs on mjs.group_code ='05' and mjs.state_code = it04.task_status
+            WHERE it04.job_id = @jobId and round = '1'
+        UNION ALL
+            SELECT 
+                '5' as task,
+                it01.task_desc,
+                it01.task_complete_status,
+                case when it01.task_complete_status = '002' 
+                    then 'Complete' 
+                    else 'In Progress' 
+                end as task_complete_status_desc,
+                case when it01.task_complete_status = '002' 
+                    then format(it01.task_complete_date,'yyyy-MM-dd HH:mm') 
+                    else null          
+                end as  task_complete_date,
+                format(it01.appointment_datetime,'yyyy-MM-dd HH:mm') as appointment_datetime,
+                it01.task_status ,
+                mjs.state_desc as task_status_desc,
+                it01.task_detail ,
+                null , null , null , null , null , null , null , null
+            FROM inspection_task_001 it01 
+            LEFT  JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
+            WHERE it01.job_id = @jobId and round = '2' 
+        UNION ALL 
+            SELECT 
+                '6' as task,
+                it02.task_desc,
+                it02.task_complete_status,
+                case when it02.task_complete_status = '002' 
+                    then 'Complete' 
+                    else 'In Progress' 
+                end as task_complete_status_desc,
+                case when it02.task_complete_status = '002' 
+                    then format(it02.task_complete_date,'yyyy-MM-dd HH:mm') 
+                    else null          
+                end as  task_complete_date,
+                null ,
+                it02.task_status ,
+                mjs.state_desc as task_status_desc,
+                it02.task_detail ,
+                null , null , null , null , null , null , null , null
+            FROM inspection_task_002 it02 
+            LEFT  JOIN  master_job_state mjs on mjs.group_code ='03' and mjs.state_code = it02.task_status
+            WHERE it02.job_id = @jobId and round = '2'
+        UNION ALL 
+            SELECT 
+                '7' as task,
+                it03.task_desc,
+                it03.task_complete_status,
+                case when it03.task_complete_status = '002' 
+                    then 'Complete' 
+                    else 'In Progress' 
+                end as task_complete_status_desc,
+                case when it03.task_complete_status = '002' 
+                    then format(it03.task_complete_date,'yyyy-MM-dd HH:mm') 
+                    else null          
+                end as  task_complete_date,
+                null ,
+                it03.task_status ,
+                mjs.state_desc as task_status_desc,
+                it03.task_detail ,
+                null , null , null , null , null , null , null , null
+            FROM inspection_task_003 it03 
+            LEFT  JOIN  master_job_state mjs on mjs.group_code ='04' and mjs.state_code = it03.task_status
+            WHERE it03.job_id = @jobId and round = '2'
+        UNION ALL 
+            SELECT 
+                '8' as task,
+                it04.task_desc,
+                it04.task_complete_status,
+                case when it04.task_complete_status = '002' 
+                    then 'Complete' 
+                    else 'In Progress' 
+                end as task_complete_status_desc,
+                case when it04.task_complete_status = '002' 
+                    then format(it04.task_complete_date,'yyyy-MM-dd HH:mm') 
+                    else null          
+                end as  task_complete_date,
+                null ,
+                it04.task_status ,
+                mjs.state_desc as task_status_desc,
+                it04.task_detail ,
+                null , null , null , null , null , null , null , null
+            FROM inspection_task_004 it04 
+            LEFT  JOIN  master_job_state mjs on mjs.group_code ='05' and mjs.state_code = it04.task_status
+            WHERE it04.job_id = @jobId and round = '2'
+        ");
+
+        using var db = _context.CreateConnection();
+
+        var allData = await db.QueryAsync<InspectionTaskDetail>(sql.ToString(), new { jobId });
+
+        return allData;
+    }
+
+    public async Task<List<InspectionTransaction>> UpdateTask001(List<InspectionTaskRequest> tasks)
     {
         var responseList = new List<InspectionTransaction>();
         using var db = (DbConnection)_context.CreateConnection();
@@ -217,27 +399,35 @@ public class InspectionRepository : IInspectionRepository
 
         // SQL ไม่ต้องมี Transaction ซ้อน
         const string sql = @" 
-        IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND round = '1')
+        IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_001 
-            (job_id, round, task_desc, task_complete_status, task_complete_date, task_status, appointment_datetime, task_detail, task_create_date, task_create_by) 
+            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, appointment_datetime, task_detail, task_create_date, task_create_by) 
             VALUES
-            (@JobId, '1', @TaskDesc,   @TaskCompleteStatus,  @TaskCompleteDate,  @TaskStatus, @AppointmentDatetime, @TaskDetail, GETDATE(),        @TaskCreateBy);
-            SELECT 1;
+            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus, @AppointmentDatetime, @TaskDetail, GETDATE(), @TaskCreateBy);
         END
         ELSE
         BEGIN
             UPDATE inspection_task_001 SET 
                 task_complete_status = @TaskCompleteStatus, 
                 task_complete_date = @TaskCompleteDate,
+                task_complete_by = @TaskCompleteBy,
                 task_status = @TaskStatus,
                 appointment_datetime = @AppointmentDatetime,
                 task_detail = @TaskDetail,
                 task_update_date = GETDATE(),
                 task_update_by = @TaskCreateBy
-            WHERE job_id = @JobId AND round = '1';
-            SELECT 1;
-        END";
+            WHERE job_id = @JobId AND round = @Round;
+        END
+        DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
+        SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
+		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='02' and mjs.state_code = @TaskStatus;
+        INSERT INTO inspection_transaction_history 
+          (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
+        VALUES
+          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+        SELECT 1;
+        ";
 
         try
         {
@@ -258,48 +448,223 @@ public class InspectionRepository : IInspectionRepository
         catch (Exception ex)
         {
             await trans.RollbackAsync();
-            _logger.LogError(ex, "UpdateTaskAsync Repository Failed");
+            _logger.LogError(ex, "UpdateTask001 Repository Failed");
             throw;
         }
     }
 
+    public async Task<List<InspectionTransaction>> UpdateTask002(List<InspectionTaskRequest> tasks)
+    {
+        var responseList = new List<InspectionTransaction>();
+        using var db = (DbConnection)_context.CreateConnection();
+        await db.OpenAsync();
+        using var trans = await db.BeginTransactionAsync();
 
-    public async Task<IEnumerable<InspectionTaskDetail>> GetTaskDetailAsync(string jobId)
+        // SQL ไม่ต้องมี Transaction ซ้อน
+        const string sql = @" 
+        IF NOT EXISTS (SELECT 1 FROM inspection_task_002 WHERE job_id = @JobId AND round = @Round)
+        BEGIN
+            INSERT INTO inspection_task_002 
+            (job_id, round, task_desc, task_complete_status, task_status, task_detail, task_create_date, task_create_by,
+            survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2) 
+            VALUES
+            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy,
+			@SurveyDate, @SurveyCompanyCode,  @SurveyCompanyType,  @SurveyLocationRegion,  @SurveyLocationProvince,  @SurveyLocationDistrict,  @SurveyPrice1,  @SurveyPrice2);
+        END
+        ELSE
+        BEGIN
+            UPDATE inspection_task_002 SET 
+                task_complete_status = @TaskCompleteStatus, 
+                task_status = @TaskStatus,
+                task_detail = @TaskDetail,
+                task_update_date = GETDATE(),
+                task_update_by = @TaskCreateBy,
+                survey_date = @SurveyDate, 
+                survey_company_code = @SurveyCompanyCode, 
+                survey_company_type = @SurveyCompanyType, 
+                survey_location_region = @SurveyLocationRegion, 
+                survey_location_province = @SurveyLocationProvince, 
+                survey_location_district = @SurveyLocationDistrict, 
+                survey_price1 = @SurveyPrice1, 
+                survey_price2 = @SurveyPrice2
+            WHERE job_id = @JobId AND round = @Round;
+        END
+        DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
+        SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
+		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='03' and mjs.state_code = @TaskStatus;
+        INSERT INTO inspection_transaction_history 
+          (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
+        VALUES
+          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+        SELECT 1;
+        ";
+
+        try
+        {
+            foreach (var d in tasks)
+            {
+                // รันทีละตัวภายใต้ Transaction เดียวกัน
+                int result = await db.ExecuteScalarAsync<int>(sql, d, transaction: trans);
+
+                if (result > 0)
+                {
+                    responseList.Add(new InspectionTransaction { JobId = d.JobId });
+                }
+            }
+
+            await trans.CommitAsync();
+            return responseList;
+        }
+        catch (Exception ex)
+        {
+            await trans.RollbackAsync();
+            _logger.LogError(ex, "UpdateTask002 Repository Failed");
+            throw;
+        }
+    }
+
+    public async Task<List<InspectionTransaction>> UpdateTask003(List<InspectionTaskRequest> tasks)
+    {
+        var responseList = new List<InspectionTransaction>();
+        using var db = (DbConnection)_context.CreateConnection();
+        await db.OpenAsync();
+        using var trans = await db.BeginTransactionAsync();
+
+        const string sql = @" 
+        IF NOT EXISTS (SELECT 1 FROM inspection_task_003 WHERE job_id = @JobId AND round = @Round)
+        BEGIN
+            INSERT INTO inspection_task_003 
+            (job_id, round, task_desc, task_complete_status, task_status, task_detail, task_create_date, task_create_by) 
+            VALUES
+            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy);
+        END
+        ELSE
+        BEGIN
+            UPDATE inspection_task_003 SET 
+                task_complete_status = @TaskCompleteStatus, 
+                task_status = @TaskStatus,
+                task_detail = @TaskDetail,
+                task_update_date = GETDATE(),
+                task_update_by = @TaskCreateBy
+            WHERE job_id = @JobId AND round = @Round;
+        END
+        DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
+        SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
+		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='04' and mjs.state_code = @TaskStatus;
+        INSERT INTO inspection_transaction_history 
+          (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
+        VALUES
+          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+        SELECT 1;
+        ";
+
+        try
+        {
+            foreach (var d in tasks)
+            {
+                // รันทีละตัวภายใต้ Transaction เดียวกัน
+                int result = await db.ExecuteScalarAsync<int>(sql, d, transaction: trans);
+
+                if (result > 0)
+                {
+                    responseList.Add(new InspectionTransaction { JobId = d.JobId });
+                }
+            }
+
+            await trans.CommitAsync();
+            return responseList;
+        }
+        catch (Exception ex)
+        {
+            await trans.RollbackAsync();
+            _logger.LogError(ex, "UpdateTask003 Repository Failed");
+            throw;
+        }
+    }
+
+    public async Task<List<InspectionTransaction>> UpdateTask004(List<InspectionTaskRequest> tasks)
+    {
+        var responseList = new List<InspectionTransaction>();
+        using var db = (DbConnection)_context.CreateConnection();
+        await db.OpenAsync();
+        using var trans = await db.BeginTransactionAsync();
+
+        // SQL ไม่ต้องมี Transaction ซ้อน
+        const string sql = @" 
+        IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND round = @Round)
+        BEGIN
+            INSERT INTO inspection_task_004 
+            (job_id, round, task_desc, task_complete_status, task_status, task_detail, task_create_date, task_create_by) 
+            VALUES
+            (@JobId, '1', @TaskDesc, @TaskCompleteStatus, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy);
+        END
+        ELSE
+        BEGIN
+            UPDATE inspection_task_004 SET 
+                task_complete_status = @TaskCompleteStatus, 
+                task_status = @TaskStatus,
+                task_detail = @TaskDetail,
+                task_update_date = GETDATE(),
+                task_update_by = @TaskCreateBy
+            WHERE job_id = @JobId AND round = @Round;
+        END
+        DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
+        SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
+		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='05' and mjs.state_code = @TaskStatus;
+        INSERT INTO inspection_transaction_history 
+          (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
+        VALUES
+          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+        SELECT 1;
+        ";
+
+        try
+        {
+            foreach (var d in tasks)
+            {
+                // รันทีละตัวภายใต้ Transaction เดียวกัน
+                int result = await db.ExecuteScalarAsync<int>(sql, d, transaction: trans);
+
+                if (result > 0)
+                {
+                    responseList.Add(new InspectionTransaction { JobId = d.JobId });
+                }
+            }
+
+            await trans.CommitAsync();
+            return responseList;
+        }
+        catch (Exception ex)
+        {
+            await trans.RollbackAsync();
+            _logger.LogError(ex, "UpdateTask004 Repository Failed");
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<InspectionTransactionHistory>> GetJobHistory(string jobId)
     {
 
-        var sql = new StringBuilder(@"
-        SELECT 
-            '1' as task,
-            task_desc,
-            task_complete_status,
-            case when task_complete_status = '002' 
-                then 'Complete' 
-                else 'In Progress' 
-            end as task_complete_status_desc,
-            case when task_complete_status = '002' 
-                then format(task_complete_date,'yyyy-MM-dd HH:mm') 
-                else null          
-            end as  task_complete_date,
-            format(appointment_datetime,'yyyy-MM-dd HH:mm') as appointment_datetime,
-            it01.task_status ,
-            mjs.state_desc as task_status_desc,
-            task_detail 
-        FROM inspection_task_001 it01 
-        LEFT  JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
-        WHERE job_id = @jobId and round = '1' 
-");
-        // if (!string.IsNullOrEmpty(d.JobId))
-        // {
-        //     sql.Append(" and job_id = '" + d.JobId + "' ");
-        // }
+       const string sql = @"
+            SELECT 
+            format(create_date,'dd-MM-yyyy HH:mm:ss') create_date,
+            create_by as user_id,
+            create_by as user_name,
+            status,
+            job_status ,
+            job_desc 
+            FROM inspection_transaction_history  
+            WHERE job_id = @jobId
+            ORDER BY create_date desc
+        ";
 
-        // sql.Append(" ORDER BY job_id ");
         using var db = _context.CreateConnection();
 
-        var allData = await db.QueryAsync<InspectionTaskDetail>(sql.ToString(), new { jobId });
-        
+        var allData = await db.QueryAsync<InspectionTransactionHistory>(sql, new { jobId });
+
         return allData;
     }
+
 
 
 }

@@ -15,10 +15,19 @@ namespace MyBackend.Models.Inspection
         public int? Seq { get; set; }
 
         [JsonPropertyName("createDate")]
-        public DateTime? CreateDate { get; set; }
+        public string? CreateDate { get; set; }
 
         [JsonPropertyName("createBy")]
         public string? CreateBy { get; set; }
+
+        [JsonPropertyName("userId")]
+        public string? UserId { get; set; }
+
+        [JsonPropertyName("userName")]
+        public string? UserName { get; set; }
+
+        [JsonPropertyName("status")]
+        public string? Status { get; set; }
 
         [JsonPropertyName("jobStatus")]
         public string? JobStatus { get; set; }

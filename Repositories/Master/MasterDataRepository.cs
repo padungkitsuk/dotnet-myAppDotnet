@@ -142,4 +142,21 @@ public class MasterDataRepository : IMasterDataRepository
         return [.. result];
     }
 
+    public async Task<List<MasterDropdown>> GetRemarkMethodList()
+    {
+        const string sql = @"
+        select 
+            code, 
+            desc_th as label
+        from master_remark_method
+        where active_status = 1
+        order by seq
+        ";
+
+        using var db = _context.CreateConnection();
+
+        var result = await db.QueryAsync<MasterDropdown>(sql);
+        return [.. result];
+    }
+
 }

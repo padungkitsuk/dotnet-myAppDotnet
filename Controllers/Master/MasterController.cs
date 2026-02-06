@@ -207,4 +207,23 @@ public class MasterController : ControllerBase
         };
     }
 
+    [HttpPost("remark/method")]
+    public async Task<ActionResult<PagedResult<IEnumerable<MasterDropdown>>>> GetRemarkMethodList()
+    {
+        var result = await _service.GetRemarkMethodList();
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new PagedResult<IEnumerable<MasterDropdown>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
 }

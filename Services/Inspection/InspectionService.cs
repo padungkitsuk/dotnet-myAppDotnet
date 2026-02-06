@@ -100,9 +100,11 @@ public class InspectionService : IInspectionService
             // Corporate customers
             if (d.CustomerInfo?.CustomerType == "C") d.CustomerInfo.CustomerLastName = null;
 
-            d.VehicleInfo.ForEach(v =>{
+            d.VehicleInfo.ForEach(v =>
+            {
                 v.CarPlateNo = v.CarPlateNo?.Replace(" ", "");
-                if (v.CarRedLicense == "Y"){
+                if (v.CarRedLicense == "Y")
+                {
                     v.CarPlateNo = "ใหม่";
                     v.CarProvince = "99";
                 }
@@ -178,6 +180,15 @@ public class InspectionService : IInspectionService
         }
     }
 
+    public async Task<ApiResponse<IEnumerable<InspectionTransactionHistory>>> GetJobHistory(string jobId)
+    {
+        var result = await _repository.GetJobHistory(jobId);
+        return new ApiResponse<IEnumerable<InspectionTransactionHistory>>()
+        {
+            Data = result
+        };
+    }
+
     public async Task<ApiResponse<IEnumerable<InspectionTaskDetail>>> GetTaskDetailAsync(string jobId)
     {
         var result = await _repository.GetTaskDetailAsync(jobId);
@@ -191,44 +202,84 @@ public class InspectionService : IInspectionService
     {
         try
         {
-            var taskDesc = d.Task switch
-            {
-                "1" => "ติดตามนัดหมายลูกค้า",
-                "2" => "ส่ง SV ออกตรวจสอบ",
-                "3" => "ติดตาม SV",
-                "4" => "รอผลตรวจรถยนต์",
-                "5" => "ติดตามนัดหมายลูกค้า",
-                "6" => "ส่ง SV ออกตรวจสอบ",
-                "7" => "ติดตาม SV",
-                "8" => "รอผลตรวจรถยนต์",
-                _ => ""
-            };
-
-            //001=In Progress, 002=Complete
-            var (taskCompleteStatus, taskCompleteDate) = d.Action switch
-            {
-                "complete" => ("002", DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)),
-                _          => ("001", (string?)null)
-            };
-
             if (d.JobList == null || d.JobList.Count == 0)
                 return new ApiResponse<IEnumerable<InspectionTransaction>> { Message = "No jobs to update", Status = StatusConstant.NotFoundCode };
 
-            var tasks = new List<InspectionTaskRequest>();
-            foreach (var jobId in d.JobList)
+            // Task 5 => check RemarkCode {01,02} => {ลบรอย Remark ติดตามนัดหมายลูกค้า, ลบรอย Remark รอผลตรวจรถยนต์}
+            var (taskDesc, round) = d.Task switch
+            {
+                "1" => ("ติดตามนัดหมายลูกค้า", "1"),
+                "2" => ("ส่ง SV ออกตรวจสอบ", "1"),
+                "3" => ("ติดตาม SV", "1"),
+                "4" => ("รอผลตรวจรถยนต์", "1"),
+                "5" => (d.RemarkCode == "01" ? "ลบรอย Remark ติดตามนัดหมายลูกค้า" : "ลบรอย Remark รอผลตรวจรถยนต์", "2"),
+                "6" => ("ส่ง SV ออกตรวจสอบ", "2"),
+                "7" => ("ติดตาม SV", "2"),
+                "8" => ("รอผลตรวจรถยนต์", "2"),
+                _ => (null, null)
+            };
+
+            if (taskDesc == null) // ถ้าเลข Task ไม่ถูกต้อง
+                return new ApiResponse<IEnumerable<InspectionTransaction>> { Message = "Invalid Task Number", Status = StatusConstant.ErrorCode };
+
+            /// Task 4,8 => validate report = Y
+            if(d.Task == "4" || d.Task == "8")
+            {
+                // codition
+            }
+            else
+            {
+                d.ResultReport = null;
+                d.VerifyResultDatetime = null;
+                d.MileNumber = null;
+                d.InspectionDatetime = null;
+                d.CarInspectionResult = null;
+                d.CarType = null;
+                d.Spare = null;
+                d.Gas = null;
+                d.GasNumber = null;
+                d.GasType = null;
+                d.GasPrice = null;
+                d.ModifyVehicle = null;
+                d.ModifyVehicleList = null;
+            }
+
+            // Action => {save 001=In Progress}, {002=Complete}
+            var (taskCompleteStatus, taskCompleteDate, taskCompleteBy) = d.Action switch
+            {
+                "save" => ("001", (string?)null, (string?)null),
+                "complete" => ("002", DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture), d.TaskCreateBy),
+                _ => (null, null, null)
+            };
+
+            var tasks = d.JobList.Select(jobId =>
             {
                 var newTask = d.Clone();
-                newTask.JobId = jobId;      // JobId
+                newTask.JobId = jobId;
                 newTask.JobList = [];
                 newTask.TaskDesc = taskDesc;
                 newTask.TaskCompleteStatus = taskCompleteStatus;
                 newTask.TaskCompleteDate = taskCompleteDate;
+                newTask.TaskCompleteBy = taskCompleteBy;
+                newTask.Round = round;
                 newTask.Action = null;
-                tasks.Add(newTask);
-            }
-            _logger.LogInformation("tasks: {Json}", JsonSerializer.Serialize(tasks, _jsonOptions));
+                _logger.LogInformation("newTask : {Json}", JsonSerializer.Serialize(newTask, _jsonOptions));
+                return newTask;
+            }).ToList();
 
-            var result = await _repository.UpdateTask001Async(tasks);
+            _logger.LogInformation("Updating {Count} tasks for Task No: {TaskNo}", tasks.Count, d.Task);
+
+            var resultTask = d.Task switch
+            {
+                "1" or "5" => _repository.UpdateTask001(tasks),
+                "2" or "6" => _repository.UpdateTask002(tasks),
+                "3" or "7" => _repository.UpdateTask003(tasks),
+                "4" or "8" => _repository.UpdateTask004(tasks),
+                _ => Task.FromResult(new List<InspectionTransaction>())
+            };
+
+            var result = await resultTask;
+
             if (result == null || result.Count == 0) return new ApiResponse<IEnumerable<InspectionTransaction>>() { Message = StatusConstant.ErrorMessage, Status = StatusConstant.ErrorCode };
             return new ApiResponse<IEnumerable<InspectionTransaction>>() { Data = result };
         }
