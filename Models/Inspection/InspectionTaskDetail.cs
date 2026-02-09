@@ -28,6 +28,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("taskStatusDesc")]
         public string? TaskStatusDesc { get; set; }
 
+        [JsonPropertyName("buCode")]
+        public string? BuCode { get; set; }
+
         [JsonPropertyName("appointmentDatetime")]
         public string? AppointmentDatetime { get; set; }
 

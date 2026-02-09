@@ -230,9 +230,11 @@ public class InspectionRepository : IInspectionRepository
                 it01.task_status ,
                 mjs.state_desc as task_status_desc,
                 it01.task_detail ,
-                null survey_date, null survey_company_code, null survey_company_type, null survey_location_region, null survey_location_province, null survey_location_district, null survey_price1, null survey_price2
+                null survey_date, null survey_company_code, null survey_company_type, null survey_location_region, null survey_location_province, null survey_location_district, null survey_price1, null survey_price2,
+                it.bu_code
             FROM inspection_task_001 it01 
-            LEFT  JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
+            LEFT JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
+            LEFT JOIN inspection_transaction it on it01.job_id = it.job_id
             WHERE it01.job_id = @jobId and round = '1' 
         UNION ALL 
             SELECT 
@@ -251,9 +253,11 @@ public class InspectionRepository : IInspectionRepository
                 it02.task_status ,
                 mjs.state_desc as task_status_desc,
                 it02.task_detail ,
-                format(it02.survey_date,'yyyy-MM-dd HH:mm') survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2
+                format(it02.survey_date,'yyyy-MM-dd HH:mm') survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2,
+                it.bu_code
             FROM inspection_task_002 it02 
-            LEFT  JOIN  master_job_state mjs on mjs.group_code ='03' and mjs.state_code = it02.task_status
+            LEFT JOIN  master_job_state mjs on mjs.group_code ='03' and mjs.state_code = it02.task_status
+            LEFT JOIN inspection_transaction it on it02.job_id = it.job_id
             WHERE it02.job_id = @jobId and round = '1'
         UNION ALL 
             SELECT 
@@ -272,9 +276,11 @@ public class InspectionRepository : IInspectionRepository
                 it03.task_status ,
                 mjs.state_desc as task_status_desc,
                 it03.task_detail ,
-                null , null , null , null , null , null , null , null
+                null , null , null , null , null , null , null , null,
+                it.bu_code
             FROM inspection_task_003 it03 
-            LEFT  JOIN  master_job_state mjs on mjs.group_code ='04' and mjs.state_code = it03.task_status
+            LEFT JOIN master_job_state mjs on mjs.group_code ='04' and mjs.state_code = it03.task_status
+            LEFT JOIN inspection_transaction it on it03.job_id = it.job_id
             WHERE it03.job_id = @jobId and round = '1'
         UNION ALL 
             SELECT 
@@ -293,9 +299,11 @@ public class InspectionRepository : IInspectionRepository
                 it04.task_status ,
                 mjs.state_desc as task_status_desc,
                 it04.task_detail ,
-                null , null , null , null , null , null , null , null
+                null , null , null , null , null , null , null , null,
+                it.bu_code
             FROM inspection_task_004 it04 
-            LEFT  JOIN  master_job_state mjs on mjs.group_code ='05' and mjs.state_code = it04.task_status
+            LEFT JOIN master_job_state mjs on mjs.group_code ='05' and mjs.state_code = it04.task_status
+            LEFT JOIN inspection_transaction it on it04.job_id = it.job_id
             WHERE it04.job_id = @jobId and round = '1'
         UNION ALL
             SELECT 
@@ -314,9 +322,11 @@ public class InspectionRepository : IInspectionRepository
                 it01.task_status ,
                 mjs.state_desc as task_status_desc,
                 it01.task_detail ,
-                null , null , null , null , null , null , null , null
+                null , null , null , null , null , null , null , null,
+                it.bu_code
             FROM inspection_task_001 it01 
             LEFT  JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
+            LEFT JOIN inspection_transaction it on it01.job_id = it.job_id
             WHERE it01.job_id = @jobId and round = '2' 
         UNION ALL 
             SELECT 
@@ -335,9 +345,11 @@ public class InspectionRepository : IInspectionRepository
                 it02.task_status ,
                 mjs.state_desc as task_status_desc,
                 it02.task_detail ,
-                null , null , null , null , null , null , null , null
+                null , null , null , null , null , null , null , null,
+                it.bu_code
             FROM inspection_task_002 it02 
             LEFT  JOIN  master_job_state mjs on mjs.group_code ='03' and mjs.state_code = it02.task_status
+            LEFT JOIN inspection_transaction it on it02.job_id = it.job_id
             WHERE it02.job_id = @jobId and round = '2'
         UNION ALL 
             SELECT 
@@ -356,9 +368,11 @@ public class InspectionRepository : IInspectionRepository
                 it03.task_status ,
                 mjs.state_desc as task_status_desc,
                 it03.task_detail ,
-                null , null , null , null , null , null , null , null
+                null , null , null , null , null , null , null , null,
+                it.bu_code
             FROM inspection_task_003 it03 
             LEFT  JOIN  master_job_state mjs on mjs.group_code ='04' and mjs.state_code = it03.task_status
+            LEFT JOIN inspection_transaction it on it03.job_id = it.job_id
             WHERE it03.job_id = @jobId and round = '2'
         UNION ALL 
             SELECT 
@@ -377,9 +391,11 @@ public class InspectionRepository : IInspectionRepository
                 it04.task_status ,
                 mjs.state_desc as task_status_desc,
                 it04.task_detail ,
-                null , null , null , null , null , null , null , null
+                null , null , null , null , null , null , null , null,
+                it.bu_code
             FROM inspection_task_004 it04 
             LEFT  JOIN  master_job_state mjs on mjs.group_code ='05' and mjs.state_code = it04.task_status
+            LEFT JOIN inspection_transaction it on it04.job_id = it.job_id
             WHERE it04.job_id = @jobId and round = '2'
         ");
 
@@ -598,9 +614,13 @@ public class InspectionRepository : IInspectionRepository
         IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_004 
-            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by) 
+            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
+             result_report, verify_result_datetime, mile_number, inspection_datetime, car_inspection_result, car_type,
+			 spare,  gas,   gas_number, gas_type,   gas_price, modify_vehicle) 
             VALUES
-            (@JobId, '1', @TaskDesc, @TaskCompleteStatus,    @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy);
+            (@JobId, '1',  @TaskDesc,  @TaskCompleteStatus,   @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy,
+			 @ResultReport, @VerifyResultDatetime,  @MileNumber, @InspectionDatetime,  @CarInspectionResult, @CarType,
+			 @Spare, @Gas,   @GasNumber,  @GasType, @GasPrice,    @ModifyVehicle);
         END
         ELSE
         BEGIN
@@ -611,9 +631,21 @@ public class InspectionRepository : IInspectionRepository
                 task_status = @TaskStatus,
                 task_detail = @TaskDetail,
                 task_update_date = GETDATE(),
-                task_update_by = @TaskCreateBy
+                task_update_by = @TaskCreateBy,
+                result_report = @ResultReport, 
+                verify_result_datetime = @VerifyResultDatetime, 
+                mile_number = @MileNumber, 
+                inspection_datetime = @InspectionDatetime, 
+                car_inspection_result = @CarInspectionResult, 
+                car_type = @CarType,
+                spare = @Spare,  
+                gas = @Gas,   
+                gas_number = @GasNumber, 
+                gas_type = @GasType,   
+                gas_price = @GasPrice, 
+                modify_vehicle = @ModifyVehicle
             WHERE job_id = @JobId AND round = @Round;
-        END
+        END  
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='05' and mjs.state_code = @TaskStatus;
