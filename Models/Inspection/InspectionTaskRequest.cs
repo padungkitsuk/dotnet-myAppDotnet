@@ -109,7 +109,7 @@ namespace MyBackend.Models.Inspection
 
         /// if modifyVehicle => Y
         [JsonPropertyName("modifyVehicleList")]
-        public List<InspectionModifyVehicle>? ModifyVehicleList { get; set; } = [];
+        public List<InspectionModifyVehicle?> ModifyVehicleList { get; set; } = [];
 
 
 

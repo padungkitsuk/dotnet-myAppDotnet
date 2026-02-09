@@ -656,12 +656,38 @@ public class InspectionRepository : IInspectionRepository
         SELECT 1;
         ";
 
+        const string sqlDelModify = @"DELETE FROM inspection_modify_vehicle WHERE job_id = @JobId";
+
+        const string sqlInsModify = @"
+        INSERT INTO inspection_modify_vehicle 
+        (job_id, accessory_no ,accessory_code ,accessory_desc ,accessory_brand ,accessory_price ,create_date)
+        VALUES 
+        (@JobId, @AccessoryNo , @AccessoryCode , @AccessoryDesc , @AccessoryBrand , @AccessoryPrice ,GETDATE())";
+
         try
         {
             foreach (var d in tasks)
             {
                 // รันทีละตัวภายใต้ Transaction เดียวกัน
                 int result = await db.ExecuteScalarAsync<int>(sql, d, transaction: trans);
+
+                if (d.ResultReport == "Y" && d.ModifyVehicle == "Y" && d.ModifyVehicleList?.Any() == true)
+                {
+                    await db.ExecuteAsync(sqlDelModify, new { d.JobId }, transaction: trans);
+                    
+                    var modifyParams = d.ModifyVehicleList.Select(v => new
+                    {
+                        d.JobId,
+                        v?.AccessoryNo,
+                        v?.AccessoryCode,
+                        v?.AccessoryDesc,
+                        v?.AccessoryBrand,
+                        v?.AccessoryPrice
+                    });
+
+                    // ใช้ Dapper Feature: ส่ง List เข้าไปทีเดียวเพื่อทำ Batch Insert (เร็วขึ้นมาก)
+                    await db.ExecuteAsync(sqlInsModify, modifyParams, transaction: trans);
+                }
 
                 if (result > 0)
                 {
@@ -683,7 +709,7 @@ public class InspectionRepository : IInspectionRepository
     public async Task<IEnumerable<InspectionTransactionHistory>> GetJobHistory(string jobId)
     {
 
-       const string sql = @"
+        const string sql = @"
             SELECT 
             format(create_date,'dd-MM-yyyy HH:mm:ss') create_date,
             create_by as user_id,

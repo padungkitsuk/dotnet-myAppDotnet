@@ -241,7 +241,7 @@ public class InspectionService : IInspectionService
                 d.GasType = null;
                 d.GasPrice = null;
                 d.ModifyVehicle = null;
-                d.ModifyVehicleList = null;
+                d.ModifyVehicleList = [];
             }
 
             // Action => {save 001=In Progress}, {002=Complete}
