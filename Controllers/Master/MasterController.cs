@@ -36,6 +36,25 @@ public class MasterController : ControllerBase
         };
     }
 
+    [HttpPost("agent")]
+    public async Task<ActionResult<PagedResult<IEnumerable<MasterDropdown>>>> GetAgentList()
+    {
+        var result = await _service.GetAgentList();
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new PagedResult<IEnumerable<MasterDropdown>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
     [HttpPost("bu")]
     public async Task<ActionResult<PagedResult<IEnumerable<MasterDropdown>>>> GetBUList()
     {

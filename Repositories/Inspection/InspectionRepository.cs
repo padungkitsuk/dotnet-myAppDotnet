@@ -54,7 +54,13 @@ public class InspectionRepository : IInspectionRepository
 
     public async Task<InspectionTransaction> GetByIdAsync(RequestDataInspection d)
     {
-        const string sql = @"SELECT job_id, ref_no, job_create_by, FORMAT(job_create_date,'yyyy-MM-dd HH:mm') job_create_date, job_owner, [source], agent_code, bu_code, policy_no, FORMAT(policy_effective_date,'yyyy-MM-dd') policy_effective_date, customer_type, customer_first_name, customer_last_name, customer_phone, payment_info, fleet_status, fleet_id, car_type, car_red_license, car_plate_no, car_province, car_brand, car_model, car_sub_model, chassis_number, appointment_status, no_survey_status, no_survey_code, no_survey_desc, job_status, job_desc
+        const string sql = @"SELECT 
+        job_id, ref_no, job_create_by, FORMAT(job_create_date,'yyyy-MM-dd HH:mm') job_create_date, job_owner, [source], agent_code, bu_code, policy_no, FORMAT(policy_effective_date,'yyyy-MM-dd') policy_effective_date, 
+        customer_type, customer_first_name, customer_last_name, customer_phone, payment_info, 
+        fleet_status, fleet_id, 
+        car_type, car_red_license, car_plate_no, car_province, car_brand, car_model, car_sub_model, chassis_number, 
+        appointment_status, no_survey_status, no_survey_code, no_survey_desc, job_status, job_desc,
+        informer_first_name, informer_last_name, informer_phone, informer_emails 
         FROM inspection_transaction 
         WHERE job_id = @JobId";
         using var db = _context.CreateConnection();
@@ -81,18 +87,20 @@ public class InspectionRepository : IInspectionRepository
              policy_no, policy_effective_date, customer_type, customer_first_name, customer_last_name, 
              customer_phone, payment_info, fleet_status, fleet_id, car_type, car_red_license, 
              car_plate_no, car_province, car_brand, car_model, car_sub_model, chassis_number, 
-             appointment_status, no_survey_status, no_survey_code, no_survey_desc, job_status, job_desc) 
+             appointment_status, no_survey_status, no_survey_code, no_survey_desc, job_status, job_desc,
+             informer_first_name, informer_last_name, informer_phone, informer_emails) 
             VALUES 
-            (@jobId, @refNo, @jobCreateBy, GETDATE(), @jobOwner, @source, @agentCode, @buCode, 
-             @policyNo, @policyEffectiveDate, @customerType, @customerFirstName, @customerLastName, 
-             @customerPhone, @paymentInfo, @fleetStatus, @fleetId, @carType, @carRedLicense, 
-             @carPlateNo, @carProvince, @carBrand, @carModel, @carSubModel, @chassisNumber, 
-             @appointmentStatus, @noSurveyStatus, @noSurveyCode, @noSurveyDesc, @jobStatus, @jobDesc);
+            (@JobId, @RefNo, @JobCreateBy, GETDATE(), @JobOwner, @Source, @AgentCode, @BuCode, 
+             @PolicyNo, @PolicyEffectiveDate, @CustomerType, @CustomerFirstName, @CustomerLastName, 
+             @CustomerPhone, @PaymentInfo, @FleetStatus, @FleetId, @CarType, @CarRedLicense, 
+             @CarPlateNo, @CarProvince, @CarBrand, @CarModel, @CarSubModel, @ChassisNumber, 
+             @AppointmentStatus, @NoSurveyStatus, @NoSurveyCode, @NoSurveyDesc, @JobStatus, @JobDesc,
+			 @InformerFirstName, @InformerLastName, @InformerPhone, @InformerEmails);
              
             INSERT INTO inspection_transaction_history 
              (job_id, seq, create_date, create_by,    status,   job_status, job_desc) 
             VALUES
-             (@JobId, 1,   GETDATE(),   @jobCreateBy, N'งานใหม่', '-',            '-');
+             (@JobId, 1,   GETDATE(),   @JobCreateBy, N'งานใหม่', '-',            '-');
              ";
 
             string? newFleetId = (fleetStatus == "Y") ? await _seq.GetNextFleetValue() : null;
@@ -114,7 +122,7 @@ public class InspectionRepository : IInspectionRepository
                 {
                     JobId = newJobId,
                     CarPlateNo = d.CarPlateNo,
-                    CarProvince = d.CarProvince,
+                    CarProvince = d.CarProvinceDesc,
                     FleetId = newFleetId
                 });
             }
@@ -231,6 +239,7 @@ public class InspectionRepository : IInspectionRepository
                 mjs.state_desc as task_status_desc,
                 it01.task_detail ,
                 null survey_date, null survey_company_code, null survey_company_type, null survey_location_region, null survey_location_province, null survey_location_district, null survey_price1, null survey_price2,
+                null remark_code,
                 it.bu_code
             FROM inspection_task_001 it01 
             LEFT JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
@@ -254,6 +263,7 @@ public class InspectionRepository : IInspectionRepository
                 mjs.state_desc as task_status_desc,
                 it02.task_detail ,
                 format(it02.survey_date,'yyyy-MM-dd HH:mm') survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2,
+                null ,
                 it.bu_code
             FROM inspection_task_002 it02 
             LEFT JOIN  master_job_state mjs on mjs.group_code ='03' and mjs.state_code = it02.task_status
@@ -277,6 +287,7 @@ public class InspectionRepository : IInspectionRepository
                 mjs.state_desc as task_status_desc,
                 it03.task_detail ,
                 null , null , null , null , null , null , null , null,
+                null,
                 it.bu_code
             FROM inspection_task_003 it03 
             LEFT JOIN master_job_state mjs on mjs.group_code ='04' and mjs.state_code = it03.task_status
@@ -300,6 +311,7 @@ public class InspectionRepository : IInspectionRepository
                 mjs.state_desc as task_status_desc,
                 it04.task_detail ,
                 null , null , null , null , null , null , null , null,
+                it04.remark_code,
                 it.bu_code
             FROM inspection_task_004 it04 
             LEFT JOIN master_job_state mjs on mjs.group_code ='05' and mjs.state_code = it04.task_status
@@ -323,6 +335,7 @@ public class InspectionRepository : IInspectionRepository
                 mjs.state_desc as task_status_desc,
                 it01.task_detail ,
                 null , null , null , null , null , null , null , null,
+                null ,
                 it.bu_code
             FROM inspection_task_001 it01 
             LEFT  JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
@@ -346,6 +359,7 @@ public class InspectionRepository : IInspectionRepository
                 mjs.state_desc as task_status_desc,
                 it02.task_detail ,
                 null , null , null , null , null , null , null , null,
+                null ,
                 it.bu_code
             FROM inspection_task_002 it02 
             LEFT  JOIN  master_job_state mjs on mjs.group_code ='03' and mjs.state_code = it02.task_status
@@ -369,6 +383,7 @@ public class InspectionRepository : IInspectionRepository
                 mjs.state_desc as task_status_desc,
                 it03.task_detail ,
                 null , null , null , null , null , null , null , null,
+                null ,
                 it.bu_code
             FROM inspection_task_003 it03 
             LEFT  JOIN  master_job_state mjs on mjs.group_code ='04' and mjs.state_code = it03.task_status
@@ -392,6 +407,7 @@ public class InspectionRepository : IInspectionRepository
                 mjs.state_desc as task_status_desc,
                 it04.task_detail ,
                 null , null , null , null , null , null , null , null,
+                it04.remark_code,
                 it.bu_code
             FROM inspection_task_004 it04 
             LEFT  JOIN  master_job_state mjs on mjs.group_code ='05' and mjs.state_code = it04.task_status
@@ -406,9 +422,9 @@ public class InspectionRepository : IInspectionRepository
         return allData;
     }
 
-    public async Task<List<InspectionTransaction>> UpdateTask001(List<InspectionTaskRequest> tasks)
+    public async Task<List<InspectionTaskResponse>> UpdateTask001(List<InspectionTaskRequest> tasks)
     {
-        var responseList = new List<InspectionTransaction>();
+        var responseList = new List<InspectionTaskResponse>();
         using var db = (DbConnection)_context.CreateConnection();
         await db.OpenAsync();
         using var trans = await db.BeginTransactionAsync();
@@ -424,6 +440,8 @@ public class InspectionRepository : IInspectionRepository
         END
         ELSE
         BEGIN
+	        IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
+            BEGIN
             UPDATE inspection_task_001 SET 
                 task_complete_status = @TaskCompleteStatus, 
                 task_complete_date = @TaskCompleteDate,
@@ -434,6 +452,7 @@ public class InspectionRepository : IInspectionRepository
                 task_update_date = GETDATE(),
                 task_update_by = @TaskCreateBy
             WHERE job_id = @JobId AND round = @Round;
+			END
         END
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
@@ -454,7 +473,7 @@ public class InspectionRepository : IInspectionRepository
 
                 if (result > 0)
                 {
-                    responseList.Add(new InspectionTransaction { JobId = d.JobId });
+                    responseList.Add(new InspectionTaskResponse { JobId = d.JobId });
                 }
             }
 
@@ -469,9 +488,9 @@ public class InspectionRepository : IInspectionRepository
         }
     }
 
-    public async Task<List<InspectionTransaction>> UpdateTask002(List<InspectionTaskRequest> tasks)
+    public async Task<List<InspectionTaskResponse>> UpdateTask002(List<InspectionTaskRequest> tasks)
     {
-        var responseList = new List<InspectionTransaction>();
+        var responseList = new List<InspectionTaskResponse>();
         using var db = (DbConnection)_context.CreateConnection();
         await db.OpenAsync();
         using var trans = await db.BeginTransactionAsync();
@@ -489,6 +508,8 @@ public class InspectionRepository : IInspectionRepository
         END
         ELSE
         BEGIN
+	        IF NOT EXISTS (SELECT 1 FROM inspection_task_002 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
+	        BEGIN
             UPDATE inspection_task_002 SET 
                 task_complete_status = @TaskCompleteStatus, 
                 task_complete_date = @TaskCompleteDate,
@@ -506,6 +527,7 @@ public class InspectionRepository : IInspectionRepository
                 survey_price1 = @SurveyPrice1, 
                 survey_price2 = @SurveyPrice2
             WHERE job_id = @JobId AND round = @Round;
+			END
         END
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
@@ -526,7 +548,7 @@ public class InspectionRepository : IInspectionRepository
 
                 if (result > 0)
                 {
-                    responseList.Add(new InspectionTransaction { JobId = d.JobId });
+                    responseList.Add(new InspectionTaskResponse { JobId = d.JobId });
                 }
             }
 
@@ -541,9 +563,9 @@ public class InspectionRepository : IInspectionRepository
         }
     }
 
-    public async Task<List<InspectionTransaction>> UpdateTask003(List<InspectionTaskRequest> tasks)
+    public async Task<List<InspectionTaskResponse>> UpdateTask003(List<InspectionTaskRequest> tasks)
     {
-        var responseList = new List<InspectionTransaction>();
+        var responseList = new List<InspectionTaskResponse>();
         using var db = (DbConnection)_context.CreateConnection();
         await db.OpenAsync();
         using var trans = await db.BeginTransactionAsync();
@@ -558,6 +580,8 @@ public class InspectionRepository : IInspectionRepository
         END
         ELSE
         BEGIN
+	        IF NOT EXISTS (SELECT 1 FROM inspection_task_003 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
+	        BEGIN
             UPDATE inspection_task_003 SET 
                 task_complete_status = @TaskCompleteStatus, 
                 task_complete_date = @TaskCompleteDate,
@@ -567,6 +591,7 @@ public class InspectionRepository : IInspectionRepository
                 task_update_date = GETDATE(),
                 task_update_by = @TaskCreateBy
             WHERE job_id = @JobId AND round = @Round;
+			END
         END
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
@@ -587,7 +612,7 @@ public class InspectionRepository : IInspectionRepository
 
                 if (result > 0)
                 {
-                    responseList.Add(new InspectionTransaction { JobId = d.JobId });
+                    responseList.Add(new InspectionTaskResponse { JobId = d.JobId });
                 }
             }
 
@@ -602,9 +627,9 @@ public class InspectionRepository : IInspectionRepository
         }
     }
 
-    public async Task<List<InspectionTransaction>> UpdateTask004(List<InspectionTaskRequest> tasks)
+    public async Task<List<InspectionTaskResponse>> UpdateTask004(List<InspectionTaskRequest> tasks)
     {
-        var responseList = new List<InspectionTransaction>();
+        var responseList = new List<InspectionTaskResponse>();
         using var db = (DbConnection)_context.CreateConnection();
         await db.OpenAsync();
         using var trans = await db.BeginTransactionAsync();
@@ -616,14 +641,16 @@ public class InspectionRepository : IInspectionRepository
             INSERT INTO inspection_task_004 
             (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
              result_report, verify_result_datetime, mile_number, inspection_datetime, car_inspection_result, car_type,
-			 spare,  gas,   gas_number, gas_type,   gas_price, modify_vehicle) 
+			 spare,  gas,   gas_number, gas_type,   gas_price, modify_vehicle, remark_code) 
             VALUES
             (@JobId, '1',  @TaskDesc,  @TaskCompleteStatus,   @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy,
 			 @ResultReport, @VerifyResultDatetime,  @MileNumber, @InspectionDatetime,  @CarInspectionResult, @CarType,
-			 @Spare, @Gas,   @GasNumber,  @GasType, @GasPrice,    @ModifyVehicle);
+			 @Spare, @Gas,   @GasNumber,  @GasType, @GasPrice,    @ModifyVehicle, @RemarkCode);
         END
         ELSE
         BEGIN
+	        IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
+	        BEGIN
             UPDATE inspection_task_004 SET 
                 task_complete_status = @TaskCompleteStatus, 
                 task_complete_date = @TaskCompleteDate,
@@ -643,8 +670,10 @@ public class InspectionRepository : IInspectionRepository
                 gas_number = @GasNumber, 
                 gas_type = @GasType,   
                 gas_price = @GasPrice, 
-                modify_vehicle = @ModifyVehicle
+                modify_vehicle = @ModifyVehicle,
+                remark_code = @RemarkCode
             WHERE job_id = @JobId AND round = @Round;
+			END
         END  
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
@@ -691,7 +720,7 @@ public class InspectionRepository : IInspectionRepository
 
                 if (result > 0)
                 {
-                    responseList.Add(new InspectionTransaction { JobId = d.JobId });
+                    responseList.Add(new InspectionTaskResponse { JobId = d.JobId });
                 }
             }
 

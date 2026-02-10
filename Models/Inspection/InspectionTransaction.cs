@@ -72,6 +72,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("carProvince")]
         public string? CarProvince { get; set; }
 
+        [JsonPropertyName("carProvinceDesc")]
+        public string? CarProvinceDesc { get; set; }
+
         [JsonPropertyName("carBrand")]
         public string? CarBrand { get; set; }
 
@@ -101,5 +104,18 @@ namespace MyBackend.Models.Inspection
 
         [JsonPropertyName("jobDesc")]
         public string? JobDesc { get; set; }
+
+        [JsonPropertyName("informerFirstName")]
+        public string? InformerFirstName { get; set; }
+
+        [JsonPropertyName("informerLastName")]
+        public string? InformerLastName { get; set; }
+
+        [JsonPropertyName("informerPhone")]
+        public string? InformerPhone { get; set; }
+
+        [JsonPropertyName("informerEmails")]
+        public string? InformerEmails { get; set; }
+        
     }
 }

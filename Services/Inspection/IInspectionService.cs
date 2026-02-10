@@ -11,6 +11,6 @@ public interface IInspectionService {
     Task<ApiResponse<IEnumerable<VehicleInfo>>> CreateAsync(InspectionRequest d);
     Task<ApiResponse<IEnumerable<InspectionTransactionHistory>>> GetJobHistory(string jobId);
     Task<ApiResponse<IEnumerable<InspectionTaskDetail>>> GetTaskDetailAsync(string jobId);
-    Task<ApiResponse<IEnumerable<InspectionTransaction>>> UpdateTaskAsync(InspectionTaskRequest d);
+    Task<ApiResponse<IEnumerable<InspectionTaskResponse>>> UpdateTaskAsync(InspectionTaskRequest d);
     //Task<string> GetSeq();
 }

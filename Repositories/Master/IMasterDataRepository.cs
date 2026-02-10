@@ -4,6 +4,7 @@ namespace MyBackend.Repositories.Inspection;
 
 public interface IMasterDataRepository {
     Task<List<MasterDropdown>> GetSourceList();
+    Task<List<MasterDropdown>> GetAgentList();
     Task<List<MasterDropdown>> GetBUList();
     Task<List<MasterDropdown>> GetReasonServeyList();
     Task<List<MasterDropdown>> GetProvinceList();

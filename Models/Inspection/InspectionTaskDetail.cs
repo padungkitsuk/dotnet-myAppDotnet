@@ -63,6 +63,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("surveyPrice2")]
         public decimal? SurveyPrice2 { get; set; }
 
+        [JsonPropertyName("remarkCode")]
+        public string? RemarkCode { get; set; }
+
 
     }
 }

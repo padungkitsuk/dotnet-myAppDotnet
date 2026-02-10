@@ -119,7 +119,7 @@ public class InspectionController : ControllerBase
     }
 
     [HttpPost("update/task")]
-    public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTransaction>>>> UpdateTaskAsync(InspectionTaskRequest d)
+    public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTaskResponse>>>> UpdateTaskAsync(InspectionTaskRequest d)
     {
         var result = await _inspectService.UpdateTaskAsync(d);
 
@@ -129,7 +129,7 @@ public class InspectionController : ControllerBase
             "01" => Conflict(result),
             "02" => NotFound(result),
             "99" => StatusCode(500, result),
-            _ => BadRequest(new ApiResponse<IEnumerable<InspectionTransaction>>
+            _ => BadRequest(new ApiResponse<IEnumerable<InspectionTaskResponse>>
             {
                 Message = "Unknown Error",
                 Status = result.Status

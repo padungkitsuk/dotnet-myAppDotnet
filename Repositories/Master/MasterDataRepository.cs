@@ -38,6 +38,23 @@ public class MasterDataRepository : IMasterDataRepository
         return [.. result];
     }
 
+    public async Task<List<MasterDropdown>> GetAgentList()
+    {
+        const string sql = @"
+        select 
+        code, 
+        desc_th as [label]
+        from master_agent
+        where active_status = 1
+        order by seq
+        ";
+
+        using var db = _context.CreateConnection();
+
+        var result = await db.QueryAsync<MasterDropdown>(sql);
+        return [.. result];
+    }
+
     public async Task<List<MasterDropdown>> GetBUList()
     {
         const string sql = @"

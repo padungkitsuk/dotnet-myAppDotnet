@@ -7,6 +7,7 @@ namespace MyBackend.Services.Master;
 
 public interface IMasterService {
     Task<ApiResponse<IEnumerable<MasterDropdown>>> GetSourceList();
+    Task<ApiResponse<IEnumerable<MasterDropdown>>> GetAgentList();
     Task<ApiResponse<IEnumerable<MasterDropdown>>> GetBUList();
     Task<ApiResponse<IEnumerable<MasterDropdown>>> GetReasonServeyList();
     Task<ApiResponse<IEnumerable<MasterDropdown>>> GetProvinceList();

@@ -24,6 +24,9 @@ namespace MyBackend.Models.Vehicle
         [JsonPropertyName("carProvince")]
         public string? CarProvince { get; set; }
 
+        [JsonPropertyName("carProvinceDesc")]
+        public string? CarProvinceDesc { get; set; }
+
         [StringLength(20, ErrorMessage = "CarBrand cannot exceed 20 characters.")]
         [JsonPropertyName("carBrand")]
         public string? CarBrand { get; set; }
