@@ -278,17 +278,19 @@ public class InspectionRepository : IInspectionRepository
 
         // SQL ไม่ต้องมี Transaction ซ้อน
         const string sql = @" 
+        DECLARE @StepLog bit=0
         IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_001 
             (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, appointment_datetime, task_detail, task_create_date, task_create_by) 
             VALUES
             (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus, @AppointmentDatetime, @TaskDetail, GETDATE(), @TaskCreateBy);
+			SET @StepLog = 1;
         END
         ELSE
         BEGIN
 	        IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
-            BEGIN
+	        BEGIN
             UPDATE inspection_task_001 SET 
                 task_complete_status = @TaskCompleteStatus, 
                 task_complete_date = @TaskCompleteDate,
@@ -299,8 +301,11 @@ public class InspectionRepository : IInspectionRepository
                 task_update_date = GETDATE(),
                 task_update_by = @TaskCreateBy
             WHERE job_id = @JobId AND round = @Round;
+			SET @StepLog = 1;
 			END
         END
+        IF (@StepLog = 1)
+        BEGIN
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='02' and mjs.state_code = @TaskStatus;
@@ -308,6 +313,7 @@ public class InspectionRepository : IInspectionRepository
           (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
         VALUES
           (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+		END
         SELECT 1;
         ";
 
@@ -344,6 +350,7 @@ public class InspectionRepository : IInspectionRepository
 
         // SQL ไม่ต้องมี Transaction ซ้อน
         const string sql = @" 
+        DECLARE @StepLog bit=0
         IF NOT EXISTS (SELECT 1 FROM inspection_task_002 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_002 
@@ -352,6 +359,7 @@ public class InspectionRepository : IInspectionRepository
             VALUES
             (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy,
 			@SurveyDate, @SurveyCompanyCode,  @SurveyCompanyType,  @SurveyLocationRegion,  @SurveyLocationProvince,  @SurveyLocationDistrict,  @SurveyPrice1,  @SurveyPrice2);
+			SET @StepLog = 1;
         END
         ELSE
         BEGIN
@@ -374,8 +382,11 @@ public class InspectionRepository : IInspectionRepository
                 survey_price1 = @SurveyPrice1, 
                 survey_price2 = @SurveyPrice2
             WHERE job_id = @JobId AND round = @Round;
+			SET @StepLog = 1;
 			END
         END
+        IF (@StepLog = 1)
+        BEGIN
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='03' and mjs.state_code = @TaskStatus;
@@ -383,6 +394,7 @@ public class InspectionRepository : IInspectionRepository
           (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
         VALUES
           (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+		END
         SELECT 1;
         ";
 
@@ -418,12 +430,14 @@ public class InspectionRepository : IInspectionRepository
         using var trans = await db.BeginTransactionAsync();
 
         const string sql = @" 
+        DECLARE @StepLog bit=0
         IF NOT EXISTS (SELECT 1 FROM inspection_task_003 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_003 
             (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by) 
             VALUES
             (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy,  @TaskStatus,  @TaskDetail, GETDATE(),       @TaskCreateBy);
+			SET @StepLog = 1;
         END
         ELSE
         BEGIN
@@ -438,8 +452,11 @@ public class InspectionRepository : IInspectionRepository
                 task_update_date = GETDATE(),
                 task_update_by = @TaskCreateBy
             WHERE job_id = @JobId AND round = @Round;
+			SET @StepLog = 1;
 			END
         END
+        IF (@StepLog = 1)
+        BEGIN
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='04' and mjs.state_code = @TaskStatus;
@@ -447,6 +464,7 @@ public class InspectionRepository : IInspectionRepository
           (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
         VALUES
           (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+		END
         SELECT 1;
         ";
 
@@ -483,6 +501,7 @@ public class InspectionRepository : IInspectionRepository
 
         // SQL ไม่ต้องมี Transaction ซ้อน
         const string sql = @" 
+        DECLARE @StepLog bit=0
         IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_004 
@@ -493,6 +512,7 @@ public class InspectionRepository : IInspectionRepository
             (@JobId, '1',  @TaskDesc,  @TaskCompleteStatus,   @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy,
 			 @ResultReport, @VerifyResultDatetime,  @MileNumber, @InspectionDatetime,  @CarInspectionResult, @CarType,
 			 @Spare, @Gas,   @GasNumber,  @GasType, @GasPrice,    @ModifyVehicle, @RemarkCode);
+			SET @StepLog = 1;
         END
         ELSE
         BEGIN
@@ -520,8 +540,11 @@ public class InspectionRepository : IInspectionRepository
                 modify_vehicle = @ModifyVehicle,
                 remark_code = @RemarkCode
             WHERE job_id = @JobId AND round = @Round;
+			SET @StepLog = 1;
 			END
         END  
+        IF (@StepLog = 1)
+        BEGIN
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='05' and mjs.state_code = @TaskStatus;
@@ -529,6 +552,7 @@ public class InspectionRepository : IInspectionRepository
           (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
         VALUES
           (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+		END
         SELECT 1;
         ";
 
@@ -550,7 +574,7 @@ public class InspectionRepository : IInspectionRepository
                 if (d.ResultReport == "Y" && d.ModifyVehicle == "Y" && d.ModifyVehicleList?.Any() == true)
                 {
                     await db.ExecuteAsync(sqlDelModify, new { d.JobId }, transaction: trans);
-                    
+
                     var modifyParams = d.ModifyVehicleList.Select(v => new
                     {
                         d.JobId,
