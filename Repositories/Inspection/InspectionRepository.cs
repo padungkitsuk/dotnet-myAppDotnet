@@ -222,197 +222,44 @@ public class InspectionRepository : IInspectionRepository
     {
 
         var sql = new StringBuilder(@"
+            WITH AllTasks AS (
+                SELECT '1' as t_type, '02' as group_code, job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
+                    NULL as survey_date, NULL as survey_company_code, NULL as survey_company_type, NULL as survey_location_region, NULL as survey_location_province, NULL as survey_location_district, NULL as survey_price1, NULL as survey_price2, NULL as remark_code
+                FROM inspection_task_001
+                UNION ALL
+                SELECT '2', '03', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
+                    survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2, NULL 
+                FROM inspection_task_002
+                UNION ALL
+                SELECT '3', '04', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
+                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL 
+                FROM inspection_task_003
+                UNION ALL
+                SELECT '4', '05', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
+                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, remark_code 
+                FROM inspection_task_004
+            )
             SELECT 
-                '1' as task,
-                it01.task_desc,
-                it01.task_complete_status,
-                case when it01.task_complete_status = '002' 
-                    then 'Complete' 
-                    else 'In Progress' 
-                end as task_complete_status_desc,
-                case when it01.task_complete_status = '002' 
-                    then format(it01.task_complete_date,'yyyy-MM-dd HH:mm') 
-                    else null          
-                end as  task_complete_date,
-                format(it01.appointment_datetime,'yyyy-MM-dd HH:mm') as appointment_datetime,
-                it01.task_status ,
+                -- คำนวณลำดับ Task อัตโนมัติ (Task 1-4 สำหรับ Round 1, 5-8 สำหรับ Round 2, 9-12 สำหรับ Round 3)
+                CAST(((CAST(round AS INT) - 1) * 4) + CAST(t_type AS INT) AS VARCHAR(10)) as task,
+                t.task_desc,
+                t.task_complete_status,
+                CASE WHEN t.task_complete_status = '002' THEN 'Complete' ELSE 'In Progress' END as task_complete_status_desc,
+                CASE WHEN t.task_complete_status = '002' THEN FORMAT(t.task_complete_date, 'yyyy-MM-dd HH:mm') ELSE NULL END as task_complete_date,
+                FORMAT(t.appointment_datetime, 'yyyy-MM-dd HH:mm') as appointment_datetime,
+                t.task_status,
                 mjs.state_desc as task_status_desc,
-                it01.task_detail ,
-                null survey_date, null survey_company_code, null survey_company_type, null survey_location_region, null survey_location_province, null survey_location_district, null survey_price1, null survey_price2,
-                null remark_code,
+                t.task_detail,
+                FORMAT(t.survey_date, 'yyyy-MM-dd HH:mm') as survey_date,
+                t.survey_company_code, t.survey_company_type, t.survey_location_region, t.survey_location_province, t.survey_location_district, t.survey_price1, t.survey_price2,
+                t.remark_code,
                 it.bu_code
-            FROM inspection_task_001 it01 
-            LEFT JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
-            LEFT JOIN inspection_transaction it on it01.job_id = it.job_id
-            WHERE it01.job_id = @jobId and round = '1' 
-        UNION ALL 
-            SELECT 
-                '2' as task,
-                it02.task_desc,
-                it02.task_complete_status,
-                case when it02.task_complete_status = '002' 
-                    then 'Complete' 
-                    else 'In Progress' 
-                end as task_complete_status_desc,
-                case when it02.task_complete_status = '002' 
-                    then format(it02.task_complete_date,'yyyy-MM-dd HH:mm') 
-                    else null          
-                end as  task_complete_date,
-                null ,
-                it02.task_status ,
-                mjs.state_desc as task_status_desc,
-                it02.task_detail ,
-                format(it02.survey_date,'yyyy-MM-dd HH:mm') survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2,
-                null ,
-                it.bu_code
-            FROM inspection_task_002 it02 
-            LEFT JOIN  master_job_state mjs on mjs.group_code ='03' and mjs.state_code = it02.task_status
-            LEFT JOIN inspection_transaction it on it02.job_id = it.job_id
-            WHERE it02.job_id = @jobId and round = '1'
-        UNION ALL 
-            SELECT 
-                '3' as task,
-                it03.task_desc,
-                it03.task_complete_status,
-                case when it03.task_complete_status = '002' 
-                    then 'Complete' 
-                    else 'In Progress' 
-                end as task_complete_status_desc,
-                case when it03.task_complete_status = '002' 
-                    then format(it03.task_complete_date,'yyyy-MM-dd HH:mm') 
-                    else null          
-                end as  task_complete_date,
-                null ,
-                it03.task_status ,
-                mjs.state_desc as task_status_desc,
-                it03.task_detail ,
-                null , null , null , null , null , null , null , null,
-                null,
-                it.bu_code
-            FROM inspection_task_003 it03 
-            LEFT JOIN master_job_state mjs on mjs.group_code ='04' and mjs.state_code = it03.task_status
-            LEFT JOIN inspection_transaction it on it03.job_id = it.job_id
-            WHERE it03.job_id = @jobId and round = '1'
-        UNION ALL 
-            SELECT 
-                '4' as task,
-                it04.task_desc,
-                it04.task_complete_status,
-                case when it04.task_complete_status = '002' 
-                    then 'Complete' 
-                    else 'In Progress' 
-                end as task_complete_status_desc,
-                case when it04.task_complete_status = '002' 
-                    then format(it04.task_complete_date,'yyyy-MM-dd HH:mm') 
-                    else null          
-                end as  task_complete_date,
-                null ,
-                it04.task_status ,
-                mjs.state_desc as task_status_desc,
-                it04.task_detail ,
-                null , null , null , null , null , null , null , null,
-                it04.remark_code,
-                it.bu_code
-            FROM inspection_task_004 it04 
-            LEFT JOIN master_job_state mjs on mjs.group_code ='05' and mjs.state_code = it04.task_status
-            LEFT JOIN inspection_transaction it on it04.job_id = it.job_id
-            WHERE it04.job_id = @jobId and round = '1'
-        UNION ALL
-            SELECT 
-                '5' as task,
-                it01.task_desc,
-                it01.task_complete_status,
-                case when it01.task_complete_status = '002' 
-                    then 'Complete' 
-                    else 'In Progress' 
-                end as task_complete_status_desc,
-                case when it01.task_complete_status = '002' 
-                    then format(it01.task_complete_date,'yyyy-MM-dd HH:mm') 
-                    else null          
-                end as  task_complete_date,
-                format(it01.appointment_datetime,'yyyy-MM-dd HH:mm') as appointment_datetime,
-                it01.task_status ,
-                mjs.state_desc as task_status_desc,
-                it01.task_detail ,
-                null , null , null , null , null , null , null , null,
-                null ,
-                it.bu_code
-            FROM inspection_task_001 it01 
-            LEFT  JOIN  master_job_state mjs on mjs.group_code ='02' and mjs.state_code = it01.task_status
-            LEFT JOIN inspection_transaction it on it01.job_id = it.job_id
-            WHERE it01.job_id = @jobId and round = '2' 
-        UNION ALL 
-            SELECT 
-                '6' as task,
-                it02.task_desc,
-                it02.task_complete_status,
-                case when it02.task_complete_status = '002' 
-                    then 'Complete' 
-                    else 'In Progress' 
-                end as task_complete_status_desc,
-                case when it02.task_complete_status = '002' 
-                    then format(it02.task_complete_date,'yyyy-MM-dd HH:mm') 
-                    else null          
-                end as  task_complete_date,
-                null ,
-                it02.task_status ,
-                mjs.state_desc as task_status_desc,
-                it02.task_detail ,
-                null , null , null , null , null , null , null , null,
-                null ,
-                it.bu_code
-            FROM inspection_task_002 it02 
-            LEFT  JOIN  master_job_state mjs on mjs.group_code ='03' and mjs.state_code = it02.task_status
-            LEFT JOIN inspection_transaction it on it02.job_id = it.job_id
-            WHERE it02.job_id = @jobId and round = '2'
-        UNION ALL 
-            SELECT 
-                '7' as task,
-                it03.task_desc,
-                it03.task_complete_status,
-                case when it03.task_complete_status = '002' 
-                    then 'Complete' 
-                    else 'In Progress' 
-                end as task_complete_status_desc,
-                case when it03.task_complete_status = '002' 
-                    then format(it03.task_complete_date,'yyyy-MM-dd HH:mm') 
-                    else null          
-                end as  task_complete_date,
-                null ,
-                it03.task_status ,
-                mjs.state_desc as task_status_desc,
-                it03.task_detail ,
-                null , null , null , null , null , null , null , null,
-                null ,
-                it.bu_code
-            FROM inspection_task_003 it03 
-            LEFT  JOIN  master_job_state mjs on mjs.group_code ='04' and mjs.state_code = it03.task_status
-            LEFT JOIN inspection_transaction it on it03.job_id = it.job_id
-            WHERE it03.job_id = @jobId and round = '2'
-        UNION ALL 
-            SELECT 
-                '8' as task,
-                it04.task_desc,
-                it04.task_complete_status,
-                case when it04.task_complete_status = '002' 
-                    then 'Complete' 
-                    else 'In Progress' 
-                end as task_complete_status_desc,
-                case when it04.task_complete_status = '002' 
-                    then format(it04.task_complete_date,'yyyy-MM-dd HH:mm') 
-                    else null          
-                end as  task_complete_date,
-                null ,
-                it04.task_status ,
-                mjs.state_desc as task_status_desc,
-                it04.task_detail ,
-                null , null , null , null , null , null , null , null,
-                it04.remark_code,
-                it.bu_code
-            FROM inspection_task_004 it04 
-            LEFT  JOIN  master_job_state mjs on mjs.group_code ='05' and mjs.state_code = it04.task_status
-            LEFT JOIN inspection_transaction it on it04.job_id = it.job_id
-            WHERE it04.job_id = @jobId and round = '2'
+            FROM AllTasks t
+            LEFT JOIN master_job_state mjs ON mjs.group_code = t.group_code AND mjs.state_code = t.task_status
+            LEFT JOIN inspection_transaction it ON t.job_id = it.job_id
+            WHERE t.job_id = @JobId 
+            --AND t.round IN ('1', '2')
+            ORDER BY CAST(round AS INT), CAST(t_type AS INT);
         ");
 
         using var db = _context.CreateConnection();
