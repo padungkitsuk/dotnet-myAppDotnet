@@ -231,23 +231,26 @@ public class InspectionService : IInspectionService
             }
             else
             {
-                foreach (var c in resultList)
+                var lastCompletedTask = resultList
+                .Where(c => !string.IsNullOrEmpty(c.Task)
+                        && targetTasks.Contains(c.Task)
+                        )
+                .OrderByDescending(c => Convert.ToInt32(c.Task)) // last task
+                .FirstOrDefault();
+
+                if (lastCompletedTask != null)
                 {
-                    if (c.Task != null
-                    && c.TaskCompleteStatus != null
-                    && targetTasks.Contains(c.Task)
-                    && targetTaskCompleteStatus.Contains(c.TaskCompleteStatus)
-                    )
+                    if (!string.IsNullOrEmpty(lastCompletedTask.TaskCompleteStatus)
+                    && targetTaskCompleteStatus.Contains(lastCompletedTask.TaskCompleteStatus))
                     {
-                        if (int.TryParse(c.Task, out int currentTaskNum))
+                        if (int.TryParse(lastCompletedTask.Task, out int currentTaskNum))
                         {
-
                             string nextTaskNo = (currentTaskNum + 1).ToString();
-                            bool alreadyExists = resultList.Any(x => x.Task == nextTaskNo) || generatedTasks.Any(x => x.Task == nextTaskNo);
-
+                            // เช็คว่าในระบบมี Task ถัดไปอยู่แล้วหรือยัง (ถ้ายังไม่มีค่อยสร้าง)
+                            bool alreadyExists = resultList.Any(x => x.Task == nextTaskNo);
                             if (!alreadyExists)
                             {
-                                var nextTaskDesc = GetTaskMetadata(nextTaskNo, c.RemarkCode).taskDesc;
+                                var nextTaskDesc = GetTaskMetadata(nextTaskNo, lastCompletedTask.RemarkCode).taskDesc;
                                 generatedTasks.Add(new InspectionTaskDetail
                                 {
                                     Task = nextTaskNo,
