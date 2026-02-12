@@ -19,4 +19,5 @@ public interface IInspectionRepository {
     Task<List<JobList>> GetJobListInfo(string fleetId);
     Task<string> GetSeq();
     Task<List<InspectionTransaction>> AssignJob(string jobId, string userId);
+    Task<IEnumerable<InspectionModifyVehicle>> GetModifyVehicle(string jobId);
 }

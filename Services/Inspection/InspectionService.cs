@@ -83,7 +83,6 @@ public class InspectionService : IInspectionService
         // 0101 = งานเข้าใหม่
         d.JobStatus = "0101"; 
         d.JobCreateBy = userId;
-        d.JobOwner = userId;
         //_logger.LogInformation("Inspect req: {Json}", JsonSerializer.Serialize(d, _jsonOptions));
 
         try
@@ -251,7 +250,9 @@ public class InspectionService : IInspectionService
             // convert to List use .Concat / .AddRange
             var resultList = resultData.ToList();
 
-            var targetTasks = new HashSet<string> { "1", "2", "3", "4", "5", "6", "7" };
+            var targetTasks = new HashSet<string> { "1", "2", "3"
+            //, "4", "5", "6", "7" 
+            };
             var targetTaskCompleteStatus = new HashSet<string> { "002" }; //002 = conplete
             var targetTaskStatus = new HashSet<string> { "0528" }; // 0528 = ลบรอย Remark
 
@@ -302,6 +303,16 @@ public class InspectionService : IInspectionService
                         }
                     }
                 }
+
+                //if modifyVehicle = Y
+                var allModifyItems = await _repository.GetModifyVehicle(jobId);
+                foreach (var item in resultList)
+                {
+                    if (item.ModifyVehicle == "Y")
+                    {
+                        item.ModifyVehicleList = (List<InspectionModifyVehicle?>?)allModifyItems; 
+                    }
+                }
             }
 
             // final 
@@ -332,13 +343,13 @@ public class InspectionService : IInspectionService
             "1" => ("ติดตามนัดหมายลูกค้า", "1", "2"),
             "2" => ("ส่ง SV ออกตรวจสอบ", "1", "3"),
             "3" => ("ติดตาม SV", "1", "4"),
-            "4" => ("รอผลตรวจรถยนต์", "1", "5"),
+            "4" => ("รอผลตรวจรถยนต์", "1", null),
 
             //Task 5 => check RemarkCode {01,02} => {ลบรอย Remark ติดตามนัดหมายลูกค้า, ลบรอย Remark รอผลตรวจรถยนต์}
-            "5" => (remarkCode == "01" ? "ลบรอย Remark ติดตามนัดหมายลูกค้า" : "ลบรอย Remark รอผลตรวจรถยนต์", "2", "6"),
-            "6" => ("ส่ง SV ออกตรวจสอบ", "2", "7"),
-            "7" => ("ติดตาม SV", "2", "8"),
-            "8" => ("รอผลตรวจรถยนต์", "2", null),
+            //"5" => (remarkCode == "01" ? "ลบรอย Remark ติดตามนัดหมายลูกค้า" : "ลบรอย Remark รอผลตรวจรถยนต์", "2", "6"),
+            //"6" => ("ส่ง SV ออกตรวจสอบ", "2", "7"),
+            //"7" => ("ติดตาม SV", "2", "8"),
+            //"8" => ("รอผลตรวจรถยนต์", "2", null),
             _ => (null, null, null)
         };
     }

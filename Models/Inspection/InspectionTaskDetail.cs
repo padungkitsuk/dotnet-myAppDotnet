@@ -38,7 +38,7 @@ namespace MyBackend.Models.Inspection
         public string? TaskDetail { get; set; }
 
 
-        // 2
+        /// add request for => task002
         [JsonPropertyName("surveyDate")]
         public string? SurveyDate { get; set; }
 
@@ -63,6 +63,54 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("surveyPrice2")]
         public decimal? SurveyPrice2 { get; set; }
 
+        
+        /// add request for => task004
+        [JsonPropertyName("resultReport")]
+        public string? ResultReport { get; set; }
+
+        [JsonPropertyName("verifyResultDatetime")]
+        public string? VerifyResultDatetime { get; set; }
+
+        [JsonPropertyName("mileNumber")]
+        public string? MileNumber { get; set; }
+
+        [JsonPropertyName("inspectionDatetime")]
+        public string? InspectionDatetime { get; set; }
+
+        [JsonPropertyName("carInspectionResult")]
+        public string? CarInspectionResult { get; set; }
+
+        [JsonPropertyName("carModification")]
+        public string? CarModification { get; set; }
+
+        [JsonPropertyName("carType")]
+        public string? CarType { get; set; }
+
+        [JsonPropertyName("spare")]
+        public string? Spare { get; set; }
+
+        [JsonPropertyName("gas")]
+        public string? Gas { get; set; }
+
+        [JsonPropertyName("gasNumber")]
+        public int? GasNumber { get; set; }
+
+        [JsonPropertyName("gasType")]
+        public string? GasType { get; set; }
+
+        [JsonPropertyName("gasPrice")]
+        public decimal? GasPrice { get; set; }
+
+        [JsonPropertyName("modifyVehicle")]
+        public string? ModifyVehicle { get; set; }
+
+        /// if modifyVehicle => Y
+        [JsonPropertyName("modifyVehicleList")]
+        public List<InspectionModifyVehicle?>? ModifyVehicleList { get; set; }
+
+
+
+        /// remark code
         [JsonPropertyName("remarkCode")]
         public string? RemarkCode { get; set; }
 

@@ -113,24 +113,24 @@ public class InspectionRepository : IInspectionRepository
         {
             const string sqlInsert = @"
             INSERT INTO inspection_transaction 
-            (job_id, ref_no, job_create_by, job_create_date, job_owner, [source], agent_code, bu_code, 
+            (job_id, ref_no, job_create_by, job_create_date, [source], agent_code, bu_code, 
              policy_no, policy_effective_date, customer_type, customer_first_name, customer_last_name, 
              customer_phone, payment_info, fleet_status, fleet_id, car_type, car_red_license, 
              car_plate_no, car_province, car_brand, car_model, car_sub_model, chassis_number, 
              appointment_status, no_survey_status, no_survey_code, no_survey_desc, job_status, job_desc,
              informer_first_name, informer_last_name, informer_phone, informer_emails) 
             VALUES 
-            (@JobId, @RefNo, @JobCreateBy, GETDATE(), @JobOwner, @Source, @AgentCode, @BuCode, 
+            (@JobId, @RefNo, @JobCreateBy,     GETDATE(),      @Source, @AgentCode, @BuCode, 
              @PolicyNo, @PolicyEffectiveDate, @CustomerType, @CustomerFirstName, @CustomerLastName, 
              @CustomerPhone, @PaymentInfo, @FleetStatus, @FleetId, @CarType, @CarRedLicense, 
              @CarPlateNo, @CarProvince, @CarBrand, @CarModel, @CarSubModel, @ChassisNumber, 
              @AppointmentStatus, @NoSurveyStatus, @NoSurveyCode, @NoSurveyDesc, @JobStatus, @JobDesc,
 			 @InformerFirstName, @InformerLastName, @InformerPhone, @InformerEmails);
-             
+            
             INSERT INTO inspection_transaction_history 
-             (job_id, seq, create_date, create_by,    status,   job_status, job_desc) 
+             (job_id, seq, create_date, create_by,    status_code, status,   job_status, job_desc) 
             VALUES
-             (@JobId, 1,   GETDATE(),   @JobCreateBy, N'งานใหม่', '-',            '-');
+             (@JobId, 1,   GETDATE(),   @JobCreateBy, @JobStatus, N'งานใหม่',       '-',      '-');
              ";
 
             string? newFleetId = (fleetStatus == "Y") ? await _seq.GetNextFleetValue() : null;
@@ -255,19 +255,27 @@ public class InspectionRepository : IInspectionRepository
         var sql = new StringBuilder(@"
             WITH AllTasks AS (
                 SELECT '1' as t_type, '02' as group_code, job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
-                    NULL as survey_date, NULL as survey_company_code, NULL as survey_company_type, NULL as survey_location_region, NULL as survey_location_province, NULL as survey_location_district, NULL as survey_price1, NULL as survey_price2, NULL as remark_code
+                    NULL as survey_date, NULL as survey_company_code, NULL as survey_company_type, NULL as survey_location_region, NULL as survey_location_province, NULL as survey_location_district, NULL as survey_price1, NULL as survey_price2, 
+                    NULL as verify_result_datetime , NULL as result_report , NULL as mile_number , NULL as car_modification , NULL as car_inspection_result , 
+                    NULL as car_type , NULL as spare , NULL as gas, NULL as gas_number , NULL as gas_type , NULL as gas_price , NULL as modify_vehicle ,NULL as remark_code
                 FROM inspection_task_001
                 UNION ALL
                 SELECT '2', '03', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
-                    survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2, NULL 
+                    survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2,
+                    NULL, NULL, NULL, NULL, NULL,   
+                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
                 FROM inspection_task_002
                 UNION ALL
                 SELECT '3', '04', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
-                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL 
+                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
+                    NULL, NULL, NULL, NULL, NULL,   
+                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL 
                 FROM inspection_task_003
                 UNION ALL
                 SELECT '4', '05', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
-                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, remark_code 
+                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
+                    verify_result_datetime ,result_report ,mile_number ,car_modification ,car_inspection_result ,
+                    car_type ,spare ,gas, gas_number ,gas_type ,gas_price ,modify_vehicle ,remark_code 
                 FROM inspection_task_004
             )
             SELECT 
@@ -284,7 +292,20 @@ public class InspectionRepository : IInspectionRepository
                 FORMAT(t.survey_date, 'yyyy-MM-dd HH:mm') as survey_date,
                 t.survey_company_code, t.survey_company_type, t.survey_location_region, t.survey_location_province, t.survey_location_district, t.survey_price1, t.survey_price2,
                 t.remark_code,
-                it.bu_code
+                it.bu_code,
+                t.verify_result_datetime,
+                t.result_report  ,
+                t.mile_number  ,
+                t.car_modification  ,
+                t.car_inspection_result  ,
+                t.car_type  ,
+                t.spare  ,
+                t.gas , 
+                t.gas_number  ,
+                t.gas_type  ,
+                t.gas_price  ,
+                t.modify_vehicle  ,
+                t.remark_code 
             FROM AllTasks t
             LEFT JOIN master_job_state mjs ON mjs.group_code = t.group_code AND mjs.state_code = t.task_status
             LEFT JOIN inspection_transaction it ON t.job_id = it.job_id
@@ -700,4 +721,28 @@ public class InspectionRepository : IInspectionRepository
             throw;
         }
     }
+
+    public async Task<IEnumerable<InspectionModifyVehicle>> GetModifyVehicle(string jobId)
+    {
+
+        const string sql = @"
+        SELECT 
+            accessory_no ,
+            accessory_code ,
+            accessory_desc ,
+            accessory_brand ,
+            accessory_price
+        FROM inspection_modify_vehicle
+        WHERE job_id = @JobId
+        ORDER BY accessory_no
+        ";
+
+        using var db = _context.CreateConnection();
+
+        var allData = await db.QueryAsync<InspectionModifyVehicle>(sql, new { jobId });
+
+        return allData;
+    }
+
+
 }

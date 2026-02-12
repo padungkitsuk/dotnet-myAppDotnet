@@ -144,13 +144,24 @@ public class MasterDataRepository : IMasterDataRepository
     public async Task<List<MasterDropdown>> GetJobStateList(string groupCode)
     {
         const string sql = @"
-        select 
-            state_code as code, 
-            state_desc as label
-        from master_job_state
-        where active_status = 1
-        and group_code = @groupCode 
-        order by seq
+        SELECT code, label FROM (
+            SELECT 
+                state_code AS code, 
+                state_desc AS label,
+                1 AS group_priority,
+                seq
+            FROM master_job_state
+            WHERE active_status = 1 AND group_code = @groupCode 
+            UNION ALL
+            SELECT 
+                state_code AS code, 
+                state_desc AS label,
+                2 AS group_priority,
+                seq
+            FROM master_job_state 
+            WHERE active_status = 1 AND group_code = '00' AND state_code = 'cancel'
+        ) AS CombinedResult
+        ORDER BY group_priority, seq;
         ";
 
         using var db = _context.CreateConnection();
