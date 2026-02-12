@@ -537,11 +537,11 @@ public class InspectionRepository : IInspectionRepository
         BEGIN
             INSERT INTO inspection_task_004 
             (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
-             result_report, verify_result_datetime, mile_number, inspection_datetime, car_inspection_result, car_type,
+             result_report, verify_result_datetime, mile_number, inspection_datetime, car_modification, car_inspection_result, car_type,
 			 spare,  gas,   gas_number, gas_type,   gas_price, modify_vehicle, remark_code) 
             VALUES
             (@JobId, '1',  @TaskDesc,  @TaskCompleteStatus,   @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy,
-			 @ResultReport, @VerifyResultDatetime,  @MileNumber, @InspectionDatetime,  @CarInspectionResult, @CarType,
+			 @ResultReport, @VerifyResultDatetime,  @MileNumber, @InspectionDatetime,  @CarModification, @CarInspectionResult, @CarType,
 			 @Spare, @Gas,   @GasNumber,  @GasType, @GasPrice,    @ModifyVehicle, @RemarkCode);
 			SET @StepLog = 1;
         END
@@ -561,6 +561,7 @@ public class InspectionRepository : IInspectionRepository
                 verify_result_datetime = @VerifyResultDatetime, 
                 mile_number = @MileNumber, 
                 inspection_datetime = @InspectionDatetime, 
+                car_modification = @CarModification,
                 car_inspection_result = @CarInspectionResult, 
                 car_type = @CarType,
                 spare = @Spare,  

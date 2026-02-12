@@ -86,6 +86,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("carInspectionResult")]
         public string? CarInspectionResult { get; set; }
 
+        [JsonPropertyName("carModification")]
+        public string? CarModification { get; set; }
+
         [JsonPropertyName("carType")]
         public string? CarType { get; set; }
 
