@@ -35,10 +35,14 @@ public class InspectionRepository : IInspectionRepository
 	        it.car_province, 
 	        mp.desc_th as car_province_desc, 
 	        it.car_brand, it.car_model, it.car_sub_model, it.chassis_number, 
-	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc, it.job_status, it.job_desc,
+	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc, 
+	        it.job_status, 
+	        mjs.state_desc as job_status_desc,
+	        it.job_desc,
 	        it.informer_first_name, it.informer_last_name, it.informer_phone, it.informer_emails 
         FROM inspection_transaction it
         LEFT JOIN master_province mp ON it.car_province = mp.code
+        LEFT JOIN master_job_state mjs ON it.job_status = mjs.state_code
         WHERE 1=1 
         ");
         if (!string.IsNullOrEmpty(d.JobId))
@@ -79,10 +83,14 @@ public class InspectionRepository : IInspectionRepository
 	        it.car_province, 
 	        mp.desc_th as car_province_desc, 
 	        it.car_brand, it.car_model, it.car_sub_model, it.chassis_number, 
-	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc, it.job_status, it.job_desc,
+	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc, 
+	        it.job_status, 
+	        mjs.state_desc as job_status_desc,
+	        it.job_desc,
 	        it.informer_first_name, it.informer_last_name, it.informer_phone, it.informer_emails 
         FROM inspection_transaction it
         LEFT JOIN master_province mp ON it.car_province = mp.code
+        LEFT JOIN master_job_state mjs ON it.job_status = mjs.state_code
         WHERE it.job_id = @JobId
         ";
         using var db = _context.CreateConnection();
@@ -652,6 +660,43 @@ public class InspectionRepository : IInspectionRepository
         return allData;
     }
 
+    public async Task<List<InspectionTransaction>> AssignJob(string jobId, string userId)
+    {
+        var responseList = new List<InspectionTransaction>();
+        using var db = (DbConnection)_context.CreateConnection();
+        await db.OpenAsync();
+        using var trans = await db.BeginTransactionAsync();
 
+        const string sql = @" 
+        UPDATE inspection_transaction 
+        SET job_assign = @userId 
+        WHERE job_id = @jobId
+    ";
 
+        try
+        {
+            // 1. ใช้ ExecuteAsync แทน ExecuteScalarAsync สำหรับคำสั่ง UPDATE
+            // เพราะ ExecuteAsync จะคืนค่าจำนวนแถวที่ได้รับผลกระทบ (Rows Affected)
+            int rowsAffected = await db.ExecuteAsync(sql, new { jobId, userId }, transaction: trans);
+
+            if (rowsAffected > 0)
+            {
+                // 2. แก้ไข d.JobId เป็น jobId (ตาม Parameter ที่รับมา)
+                responseList.Add(new InspectionTransaction { JobId = jobId });
+            }
+
+            await trans.CommitAsync();
+            return responseList;
+        }
+        catch (Exception ex)
+        {
+            // 3. ตรวจสอบสถานะการเชื่อมต่อก่อน Rollback เพื่อป้องกัน Error ซ้ำซ้อน
+            if (trans.Connection != null)
+            {
+                await trans.RollbackAsync();
+            }
+            _logger.LogError(ex, "AssignJob Repository Failed for JobId: {JobId}", jobId);
+            throw;
+        }
+    }
 }

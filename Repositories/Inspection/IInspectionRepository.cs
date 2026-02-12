@@ -18,5 +18,5 @@ public interface IInspectionRepository {
     Task<List<VehicleInfo>> GetCarInfo(IEnumerable<string> carPlateNos);
     Task<List<JobList>> GetJobListInfo(string fleetId);
     Task<string> GetSeq();
-    
+    Task<List<InspectionTransaction>> AssignJob(string jobId, string userId);
 }

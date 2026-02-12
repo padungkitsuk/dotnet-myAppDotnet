@@ -60,9 +60,13 @@ public class InspectionController : ControllerBase
     }
 
     [HttpPost("create")]
-    public async Task<ActionResult<ApiResponse<IEnumerable<VehicleInfo>>>> CreateAsync(InspectionRequest d)
+    public async Task<ActionResult<ApiResponse<IEnumerable<VehicleInfo>>>> CreateAsync
+    (
+        [FromBody] InspectionRequest d,
+        [FromHeader(Name = "userId")] string userId
+    )
     {
-        var result = await _inspectService.CreateAsync(d);
+        var result = await _inspectService.CreateAsync(d, userId);
 
         return result.Status switch
         {
@@ -72,6 +76,31 @@ public class InspectionController : ControllerBase
             "05" => Conflict(result),
             "99" => StatusCode(500, result),
             _ => BadRequest(new ApiResponse<IEnumerable<VehicleInfo>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status,
+                Data = result.Data
+            })
+        };
+    }
+
+    [HttpPost("assign/job")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTransaction>>>> AssignJob
+    (
+        [FromBody] InspectionRequestJobId d,
+        [FromHeader(Name = "userId")] string userId
+    )
+    {
+        var result = await _inspectService.AssignJob(d, userId);
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "05" => Conflict(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new ApiResponse<IEnumerable<InspectionTransaction>>
             {
                 Message = "Unknown Error",
                 Status = result.Status,

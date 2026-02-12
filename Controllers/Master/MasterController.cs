@@ -150,6 +150,25 @@ public class MasterController : ControllerBase
         };
     }
 
+    [HttpPost("job/state/job")]
+    public async Task<ActionResult<PagedResult<IEnumerable<MasterDropdown>>>> GetStateJob()
+    {
+        var result = await _service.GetJobStateList("01");
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new PagedResult<IEnumerable<MasterDropdown>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
     [HttpPost("job/state/follow/appointment")]
     public async Task<ActionResult<PagedResult<IEnumerable<MasterDropdown>>>> GetFollowApp()
     {

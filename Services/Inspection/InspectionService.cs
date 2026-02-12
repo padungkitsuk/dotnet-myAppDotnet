@@ -78,9 +78,12 @@ public class InspectionService : IInspectionService
         }
     }
 
-    public async Task<ApiResponse<IEnumerable<VehicleInfo>>> CreateAsync(InspectionRequest d)
+    public async Task<ApiResponse<IEnumerable<VehicleInfo>>> CreateAsync(InspectionRequest d, string userId)
     {
-        d.JobStatus = "NEW";
+        // 0101 = งานเข้าใหม่
+        d.JobStatus = "0101"; 
+        d.JobCreateBy = userId;
+        d.JobOwner = userId;
         //_logger.LogInformation("Inspect req: {Json}", JsonSerializer.Serialize(d, _jsonOptions));
 
         try
@@ -99,49 +102,77 @@ public class InspectionService : IInspectionService
                 d.NoSurveyDesc = null;
             }
 
-            // Corporate customers
+            // check C=Corporate customers
             if (d.CustomerInfo?.CustomerType == "C") d.CustomerInfo.CustomerLastName = null;
 
             var masterProvince = await _master.GetProvinceList();
             var provinceDict = masterProvince.Where(p => p.Code != null).ToDictionary(p => p.Code!, p => p.Label);
 
+            // check province not in masterProvince
+            var invalidVehicles = d.VehicleInfo.Where(v => 
+            {
+                var provinceCode = v.CarRedLicense == "Y" ? "99" : v.CarProvince?.Replace(" ", "");
+                return string.IsNullOrEmpty(provinceCode) || !provinceDict.ContainsKey(provinceCode);
+            }).ToList();
+
+            if (invalidVehicles.Count != 0)
+            {
+                var invalidCodes = string.Join(", ", invalidVehicles.Select(v => v.CarProvince).Distinct());
+                return new ApiResponse<IEnumerable<VehicleInfo>> 
+                { 
+                    Message = $"Invalid province code found: {invalidCodes}", 
+                    Status = StatusConstant.ErrorCode,
+                    Data = invalidVehicles
+                };
+            }
+
+            // clean space
             d.VehicleInfo.ForEach(v =>
             {
                 v.CarPlateNo = v.CarPlateNo?.Replace(" ", "");
+                v.CarProvince = v.CarProvince?.Replace(" ", "");
                 if (v.CarRedLicense == "Y")
                 {
                     v.CarPlateNo = "ใหม่";
                     v.CarProvince = "99";
                 }
-
-                if (v.CarProvince != null && provinceDict.TryGetValue(v.CarProvince, out var provinceName))
-                {
-                    v.CarProvinceDesc = provinceName;
-                }
+                v.CarProvinceDesc = provinceDict[v.CarProvince!];
             });
 
+            // check duplicate from request
+            var duplicateVehicles = d.VehicleInfo
+                .GroupBy(v => new { v.CarPlateNo, v.CarProvince })
+                .Where(g => g.Count() > 1) // where duplicate
+                .SelectMany(g => g)        // return List
+                .ToList();
+
+            // (Count > 0) Return ข้อมูลที่ซ้ำ
+            if (duplicateVehicles.Count != 0) 
+            {
+                return new ApiResponse<IEnumerable<VehicleInfo>> 
+                { 
+                    Message = "Duplicate license plate and province found.", 
+                    Status = StatusConstant.DuplicateCode, 
+                    Data = duplicateVehicles 
+                };
+            }
+
+            // prepare data check car plate no
             var plates = (d.FleetStatus == "Y" ? d.VehicleInfo.Select(v => v.CarPlateNo) : d.VehicleInfo.Take(1).Select(v => v.CarPlateNo))
             .Where(p => !string.IsNullOrEmpty(p))
             .ToImmutableArray();
 
-
             var carsHistory = (await _repository.GetCarInfo(plates)).ToList();
             _logger.LogInformation("carsHistory: {Json}", JsonSerializer.Serialize(carsHistory, _jsonOptions));
 
+            // check duplicate from database
             if (carsHistory.Count != 0)
             {
-                // check Duplicate 
                 var duplicates = carsHistory.Where(h =>
                     d.VehicleInfo.Any(v => v.CarPlateNo == h.CarPlateNo && v.CarProvince == h.CarProvince)
                 ).ToList();
 
-                duplicates.ForEach(dup =>
-                {
-                    if (dup.CarProvince != null && provinceDict.TryGetValue(dup.CarProvince, out var provinceName))
-                    {
-                        dup.CarProvinceDesc = provinceName;
-                    }
-                });
+                duplicates.ForEach(dup => { dup.CarProvinceDesc = provinceDict[dup.CarProvince!]; });
 
                 if (duplicates.Count != 0)
                 {
@@ -418,5 +449,22 @@ public class InspectionService : IInspectionService
         return await _repository.GetSeq();
     }
 
+    public async Task<ApiResponse<IEnumerable<InspectionTransaction>>> AssignJob(InspectionRequestJobId d, string userId)
+    {
+        try
+        {
+            var result = await _repository.AssignJob(d.JobId, userId);
 
+            return new ApiResponse<IEnumerable<InspectionTransaction>>() { Data = result };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "เกิดข้อผิดพลาดในการ AssignJob: {Message}", ex.Message);
+            return new ApiResponse<IEnumerable<InspectionTransaction>>()
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
+        }
+    }
 }
