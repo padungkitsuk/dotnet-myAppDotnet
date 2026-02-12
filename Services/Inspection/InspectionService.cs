@@ -132,8 +132,16 @@ public class InspectionService : IInspectionService
             {
                 // check Duplicate 
                 var duplicates = carsHistory.Where(h =>
-                    d.VehicleInfo.Any(v => v.CarPlateNo == h.CarPlateNo && v.CarProvince == h.CarProvinceDesc)
+                    d.VehicleInfo.Any(v => v.CarPlateNo == h.CarPlateNo && v.CarProvince == h.CarProvince)
                 ).ToList();
+
+                duplicates.ForEach(dup =>
+                {
+                    if (dup.CarProvince != null && provinceDict.TryGetValue(dup.CarProvince, out var provinceName))
+                    {
+                        dup.CarProvinceDesc = provinceName;
+                    }
+                });
 
                 if (duplicates.Count != 0)
                 {
@@ -174,6 +182,7 @@ public class InspectionService : IInspectionService
             {
                 CarPlateNo = s.CarPlateNo,
                 CarProvince = s.CarProvince,
+                CarProvinceDesc = s.CarProvinceDesc,
                 JobId = s.JobId
             });
 

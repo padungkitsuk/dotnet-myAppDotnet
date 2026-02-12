@@ -25,13 +25,28 @@ public class InspectionRepository : IInspectionRepository
     public async Task<PagedResult<IEnumerable<InspectionTransaction>>> GetPagedAsync(RequestDataInspection d)
     {
 
-        var sql = new StringBuilder("SELECT job_id, ref_no, job_create_by, FORMAT(job_create_date,'yyyy-MM-dd HH:mm') job_create_date, job_owner, [source], agent_code, bu_code, policy_no, FORMAT(policy_effective_date,'yyyy-MM-dd') policy_effective_date, customer_type, customer_first_name, customer_last_name, customer_phone, payment_info, fleet_status, fleet_id, car_type, car_red_license, car_plate_no, car_province, car_brand, car_model, car_sub_model, chassis_number, appointment_status, no_survey_status, no_survey_code, no_survey_desc, job_status, job_desc FROM inspection_transaction WHERE 1=1 ");
+        var sql = new StringBuilder(@"
+        SELECT 
+	        it.job_id, it.ref_no, it.job_create_by, FORMAT(it.job_create_date,'yyyy-MM-dd HH:mm') job_create_date, it.job_owner, it.[source], it.agent_code, it.bu_code, 
+	        it.policy_no, FORMAT(it.policy_effective_date,'yyyy-MM-dd') policy_effective_date, 
+	        it.customer_type, it.customer_first_name, it.customer_last_name, it.customer_phone, it.payment_info, 
+	        it.fleet_status, it.fleet_id, 
+	        it.car_type, it.car_red_license, it.car_plate_no, 
+	        it.car_province, 
+	        mp.desc_th as car_province_desc, 
+	        it.car_brand, it.car_model, it.car_sub_model, it.chassis_number, 
+	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc, it.job_status, it.job_desc,
+	        it.informer_first_name, it.informer_last_name, it.informer_phone, it.informer_emails 
+        FROM inspection_transaction it
+        LEFT JOIN master_province mp ON it.car_province = mp.code
+        WHERE 1=1 
+        ");
         if (!string.IsNullOrEmpty(d.JobId))
         {
-            sql.Append(" and job_id = '" + d.JobId + "' ");
+            sql.Append(" AND it.job_id = '" + d.JobId + "' ");
         }
 
-        sql.Append(" ORDER BY job_id ");
+        sql.Append(" ORDER BY it.job_id ");
         using var db = _context.CreateConnection();
 
         var allData = await db.QueryAsync<InspectionTransaction>(sql.ToString());
@@ -54,15 +69,22 @@ public class InspectionRepository : IInspectionRepository
 
     public async Task<InspectionTransaction> GetByIdAsync(RequestDataInspection d)
     {
-        const string sql = @"SELECT 
-        job_id, ref_no, job_create_by, FORMAT(job_create_date,'yyyy-MM-dd HH:mm') job_create_date, job_owner, [source], agent_code, bu_code, policy_no, FORMAT(policy_effective_date,'yyyy-MM-dd') policy_effective_date, 
-        customer_type, customer_first_name, customer_last_name, customer_phone, payment_info, 
-        fleet_status, fleet_id, 
-        car_type, car_red_license, car_plate_no, car_province, car_brand, car_model, car_sub_model, chassis_number, 
-        appointment_status, no_survey_status, no_survey_code, no_survey_desc, job_status, job_desc,
-        informer_first_name, informer_last_name, informer_phone, informer_emails 
-        FROM inspection_transaction 
-        WHERE job_id = @JobId";
+        const string sql = @"
+        SELECT 
+	        it.job_id, it.ref_no, it.job_create_by, FORMAT(it.job_create_date,'yyyy-MM-dd HH:mm') job_create_date, it.job_owner, it.[source], it.agent_code, it.bu_code, 
+	        it.policy_no, FORMAT(it.policy_effective_date,'yyyy-MM-dd') policy_effective_date, 
+	        it.customer_type, it.customer_first_name, it.customer_last_name, it.customer_phone, it.payment_info, 
+	        it.fleet_status, it.fleet_id, 
+	        it.car_type, it.car_red_license, it.car_plate_no, 
+	        it.car_province, 
+	        mp.desc_th as car_province_desc, 
+	        it.car_brand, it.car_model, it.car_sub_model, it.chassis_number, 
+	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc, it.job_status, it.job_desc,
+	        it.informer_first_name, it.informer_last_name, it.informer_phone, it.informer_emails 
+        FROM inspection_transaction it
+        LEFT JOIN master_province mp ON it.car_province = mp.code
+        WHERE it.job_id = @JobId
+        ";
         using var db = _context.CreateConnection();
         var result = await db.QueryFirstOrDefaultAsync<InspectionTransaction>(sql, new { JobId = d.JobId });
         if (result == null) return new InspectionTransaction();
@@ -122,7 +144,8 @@ public class InspectionRepository : IInspectionRepository
                 {
                     JobId = newJobId,
                     CarPlateNo = d.CarPlateNo,
-                    CarProvince = d.CarProvinceDesc,
+                    CarProvince = d.CarProvince,
+                    CarProvinceDesc = d.CarProvinceDesc,
                     FleetId = newFleetId
                 });
             }
