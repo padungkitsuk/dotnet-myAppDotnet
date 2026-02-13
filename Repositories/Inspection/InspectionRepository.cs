@@ -130,7 +130,7 @@ public class InspectionRepository : IInspectionRepository
             INSERT INTO inspection_transaction_history 
              (job_id, seq, create_date, create_by,    status_code, status,   job_status, job_desc) 
             VALUES
-             (@JobId, 1,   GETDATE(),   @JobCreateBy, @JobStatus, N'งานใหม่',       '-',      '-');
+             (@JobId, 1,   GETDATE(),   @JobCreateBy, @StatusCode, @Status,       '-',      '-');
              ";
 
             string? newFleetId = (fleetStatus == "Y") ? await _seq.GetNextFleetValue() : null;
@@ -272,7 +272,7 @@ public class InspectionRepository : IInspectionRepository
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL 
                 FROM inspection_task_003
                 UNION ALL
-                SELECT '4', '05', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
+                SELECT '4', '05', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
                     verify_result_datetime ,result_report ,mile_number ,car_modification ,car_inspection_result ,
                     car_type ,spare ,gas, gas_number ,gas_type ,gas_price ,modify_vehicle ,remark_code 
@@ -293,7 +293,7 @@ public class InspectionRepository : IInspectionRepository
                 t.survey_company_code, t.survey_company_type, t.survey_location_region, t.survey_location_province, t.survey_location_district, t.survey_price1, t.survey_price2,
                 t.remark_code,
                 it.bu_code,
-                t.verify_result_datetime,
+                FORMAT(t.verify_result_datetime, 'yyyy-MM-dd HH:mm') as verify_result_datetime,
                 t.result_report  ,
                 t.mile_number  ,
                 t.car_modification  ,
@@ -557,11 +557,11 @@ public class InspectionRepository : IInspectionRepository
         IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND round = @Round)
         BEGIN
             INSERT INTO inspection_task_004 
-            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
+            (job_id, round, appointment_datetime, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
              result_report, verify_result_datetime, mile_number, inspection_datetime, car_modification, car_inspection_result, car_type,
 			 spare,  gas,   gas_number, gas_type,   gas_price, modify_vehicle, remark_code) 
             VALUES
-            (@JobId, '1',  @TaskDesc,  @TaskCompleteStatus,   @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy,
+            (@JobId, @Round,  @AppointmentDatetime, @TaskDesc,  @TaskCompleteStatus,   @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy,
 			 @ResultReport, @VerifyResultDatetime,  @MileNumber, @InspectionDatetime,  @CarModification, @CarInspectionResult, @CarType,
 			 @Spare, @Gas,   @GasNumber,  @GasType, @GasPrice,    @ModifyVehicle, @RemarkCode);
 			SET @StepLog = 1;
@@ -571,6 +571,7 @@ public class InspectionRepository : IInspectionRepository
 	        IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
 	        BEGIN
             UPDATE inspection_task_004 SET 
+                appointment_datetime = @AppointmentDatetime,
                 task_complete_status = @TaskCompleteStatus, 
                 task_complete_date = @TaskCompleteDate,
                 task_complete_by = @TaskCompleteBy,

@@ -18,6 +18,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("round")]
         public string? Round { get; set; }
 
+        [JsonPropertyName("taskCode")]
+        public string? TaskCode { get; set; }
+
         [JsonPropertyName("taskDesc")]
         public string? TaskDesc { get; set; }
 
@@ -83,11 +86,11 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("inspectionDatetime")]
         public string? InspectionDatetime { get; set; }
 
-        [JsonPropertyName("carInspectionResult")]
-        public string? CarInspectionResult { get; set; }
-
         [JsonPropertyName("carModification")]
         public string? CarModification { get; set; }
+
+        [JsonPropertyName("carInspectionResult")]
+        public string? CarInspectionResult { get; set; }
 
         [JsonPropertyName("carType")]
         public string? CarType { get; set; }

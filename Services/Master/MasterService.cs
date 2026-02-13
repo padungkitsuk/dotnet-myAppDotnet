@@ -210,7 +210,86 @@ public class MasterService : IMasterService
         }
     }
 
+    public async Task<ApiResponse<IEnumerable<MasterDropdown>>> GetRegionList()
+    {
+        try
+        {
 
+            var result = await _repository.GetRegionList();
+            if (result == null || result.Count == 0) return new ApiResponse<IEnumerable<MasterDropdown>>() { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
+            return new ApiResponse<IEnumerable<MasterDropdown>>() { Data = result };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "เกิดข้อผิดพลาดในการ GetRegionList: {Message}", ex.Message);
+            return new ApiResponse<IEnumerable<MasterDropdown>>()
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
+        }
+    }
+
+    public async Task<ApiResponse<IEnumerable<MasterDropdown>>> GetProvinceCodeList()
+    {
+        try
+        {
+
+            var result = await _repository.GetProvinceCodeList();
+            if (result == null || result.Count == 0) return new ApiResponse<IEnumerable<MasterDropdown>>() { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
+            return new ApiResponse<IEnumerable<MasterDropdown>>() { Data = result };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "เกิดข้อผิดพลาดในการ GetProvinceCodeList: {Message}", ex.Message);
+            return new ApiResponse<IEnumerable<MasterDropdown>>()
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
+        }
+    }
+
+
+    public async Task<ApiResponse<IEnumerable<MasterDropdown>>> GetDistrictList()
+    {
+        try
+        {
+
+            var result = await _repository.GetDistrictList();
+            if (result == null || result.Count == 0) return new ApiResponse<IEnumerable<MasterDropdown>>() { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
+            return new ApiResponse<IEnumerable<MasterDropdown>>() { Data = result };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "เกิดข้อผิดพลาดในการ GetDistrictList: {Message}", ex.Message);
+            return new ApiResponse<IEnumerable<MasterDropdown>>()
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
+        }
+    }
+
+    public async Task<ApiResponse<IEnumerable<MasterDropdownPrice>>> GetServeyServiceList(string regionCode, string provinceCode, string districtCode)
+    {
+        try
+        {
+
+            var result = await _repository.GetServeyServiceList(regionCode, provinceCode, districtCode);
+            if (result == null || result.Count == 0) return new ApiResponse<IEnumerable<MasterDropdownPrice>>() { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
+            return new ApiResponse<IEnumerable<MasterDropdownPrice>>() { Data = result };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "เกิดข้อผิดพลาดในการ GetServeyServiceList: {Message}", ex.Message);
+            return new ApiResponse<IEnumerable<MasterDropdownPrice>>()
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
+        }
+    }
 
 
 }

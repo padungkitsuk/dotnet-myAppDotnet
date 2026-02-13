@@ -15,4 +15,8 @@ public interface IMasterService {
     Task<ApiResponse<IEnumerable<MasterDropdown>>> GetCarModelList(string carBrand);
     Task<ApiResponse<IEnumerable<MasterDropdown>>> GetJobStateList(string groupCode);
     Task<ApiResponse<IEnumerable<MasterDropdown>>> GetRemarkMethodList();
+    Task<ApiResponse<IEnumerable<MasterDropdown>>> GetRegionList();
+    Task<ApiResponse<IEnumerable<MasterDropdown>>> GetProvinceCodeList();
+    Task<ApiResponse<IEnumerable<MasterDropdown>>> GetDistrictList();
+    Task<ApiResponse<IEnumerable<MasterDropdownPrice>>> GetServeyServiceList(string regionCode, string provinceCode, string districtCode);
 }

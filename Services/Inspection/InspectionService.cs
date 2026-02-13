@@ -81,6 +81,10 @@ public class InspectionService : IInspectionService
     public async Task<ApiResponse<IEnumerable<VehicleInfo>>> CreateAsync(InspectionRequest d, string userId)
     {
         // 0101 = งานเข้าใหม่
+        // log history
+        d.StatusCode = "0101"; 
+        d.Status = "งานเข้าใหม่"; 
+        // inspection
         d.JobStatus = "0101"; 
         d.JobCreateBy = userId;
         //_logger.LogInformation("Inspect req: {Json}", JsonSerializer.Serialize(d, _jsonOptions));
@@ -336,21 +340,21 @@ public class InspectionService : IInspectionService
         }
     }
 
-    private static (string? taskDesc, string? round, string? nextTask) GetTaskMetadata(string? taskCode, string? remarkCode)
+    private static (string? taskCode, string? taskDesc, string? round, string? nextTask) GetTaskMetadata(string? task, string? remarkCode)
     {
-        return taskCode switch
+        return task switch
         {
-            "1" => ("ติดตามนัดหมายลูกค้า", "1", "2"),
-            "2" => ("ส่ง SV ออกตรวจสอบ", "1", "3"),
-            "3" => ("ติดตาม SV", "1", "4"),
-            "4" => ("รอผลตรวจรถยนต์", "1", null),
+            "1" => ("0102","ติดตามนัดหมายลูกค้า", "1", "2"),
+            "2" => ("0103","ส่ง SV ออกตรวจสอบ", "1", "3"),
+            "3" => ("0104","ติดตาม SV", "1", "4"),
+            "4" => ("0105","รอผลตรวจรถยนต์", "1", null),
 
             //Task 5 => check RemarkCode {01,02} => {ลบรอย Remark ติดตามนัดหมายลูกค้า, ลบรอย Remark รอผลตรวจรถยนต์}
             //"5" => (remarkCode == "01" ? "ลบรอย Remark ติดตามนัดหมายลูกค้า" : "ลบรอย Remark รอผลตรวจรถยนต์", "2", "6"),
             //"6" => ("ส่ง SV ออกตรวจสอบ", "2", "7"),
             //"7" => ("ติดตาม SV", "2", "8"),
             //"8" => ("รอผลตรวจรถยนต์", "2", null),
-            _ => (null, null, null)
+            _ => (null, null, null, null)
         };
     }
 
@@ -362,7 +366,7 @@ public class InspectionService : IInspectionService
                 return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "No jobs to update", Status = StatusConstant.NotFoundCode };
 
             // 
-            var (taskDesc, round, next) = GetTaskMetadata(d.Task, d.RemarkCode);
+            var (taskCode, taskDesc, round, next) = GetTaskMetadata(d.Task, d.RemarkCode);
 
             if (taskDesc == null) // ถ้าเลข Task ไม่ถูกต้อง
                 return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "Invalid Task Number", Status = StatusConstant.ErrorCode };
@@ -394,9 +398,10 @@ public class InspectionService : IInspectionService
                 var newTask = d.Clone();
                 newTask.JobId = jobId;
                 newTask.JobList = [];
+                newTask.TaskCode = taskCode;
                 newTask.TaskDesc = taskDesc;
                 newTask.TaskCompleteStatus = taskCompleteStatus;
-                newTask.TaskCompleteDate = taskCompleteDate;
+                newTask.TaskCompleteDate = newTask.AppointmentDatetime;
                 newTask.TaskCompleteBy = taskCompleteBy;
                 newTask.Round = round;
                 newTask.Action = null;

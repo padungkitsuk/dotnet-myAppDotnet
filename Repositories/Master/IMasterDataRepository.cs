@@ -12,4 +12,8 @@ public interface IMasterDataRepository {
     Task<List<MasterDropdown>> GetCarModelList(string carBrand);
     Task<List<MasterDropdown>> GetJobStateList(string groupCode);
     Task<List<MasterDropdown>> GetRemarkMethodList();
+    Task<List<MasterDropdown>> GetRegionList();
+    Task<List<MasterDropdown>> GetProvinceCodeList();
+    Task<List<MasterDropdown>> GetDistrictList();
+    Task<List<MasterDropdownPrice>> GetServeyServiceList(string regionCode, string provinceCode, string districtCode);
 }

@@ -264,4 +264,80 @@ public class MasterController : ControllerBase
         };
     }
 
+    [HttpPost("service/region")]
+    public async Task<ActionResult<PagedResult<IEnumerable<MasterDropdown>>>> GetRegionList()
+    {
+        var result = await _service.GetRegionList();
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new PagedResult<IEnumerable<MasterDropdown>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
+    [HttpPost("service/province")]
+    public async Task<ActionResult<PagedResult<IEnumerable<MasterDropdown>>>> GetProvinceCodeList()
+    {
+        var result = await _service.GetProvinceCodeList();
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new PagedResult<IEnumerable<MasterDropdown>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
+    [HttpPost("service/district")]
+    public async Task<ActionResult<PagedResult<IEnumerable<MasterDropdown>>>> GetDistrictList()
+    {
+        var result = await _service.GetDistrictList();
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new PagedResult<IEnumerable<MasterDropdown>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
+    [HttpPost("company/servey")]
+    public async Task<ActionResult<PagedResult<IEnumerable<MasterDropdownPrice>>>> GetServeyServiceList(MasterServiceRequest d)
+    {
+        var result = await _service.GetServeyServiceList(d.RegionCode! , d.ProvinceCode!, d.DistrictCode!);
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new PagedResult<IEnumerable<MasterDropdownPrice>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
 }
