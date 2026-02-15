@@ -717,6 +717,50 @@ public class InspectionRepository : IInspectionRepository
         return allData;
     }
 
+    public async Task<IEnumerable<InspectionTransactionHistory>> JobHistoryDelete(InspectionRequestJobId d)
+    {
+        var responseList = new List<InspectionTransactionHistory>();
+        using var db = (DbConnection)_context.CreateConnection();
+        await db.OpenAsync();
+        using var trans = await db.BeginTransactionAsync();
+
+        const string sql = @"
+        DELETE FROM inspection_transaction_history  
+        WHERE job_id = @JobId
+        AND seq = @Seq ;
+    ";
+
+        try
+        {
+            // anonymous object เพื่อ map ค่าให้ชัดเจน
+            int rowsAffected = await db.ExecuteAsync(sql, new { JobId = d.JobId, Seq = d.Seq }, transaction: trans);
+
+            if (rowsAffected > 0)
+            {
+                responseList.Add(new InspectionTransactionHistory
+                {
+                    JobId = d.JobId,
+                    Seq = d.Seq 
+                });
+            }
+
+            await trans.CommitAsync();
+
+            _logger.LogInformation("Deleted {Rows} history records for JobId: {JobId}, Seq: {Seq}", rowsAffected, d.JobId, d.Seq);
+
+            return responseList;
+        }
+        catch (Exception ex)
+        {
+            if (trans.Connection != null)
+            {
+                await trans.RollbackAsync();
+            }
+            _logger.LogError(ex, "Delete history Repository Failed for JobId: {JobId}", d.JobId);
+            throw;
+        }
+    }
+
     public async Task<List<InspectionTransaction>> AssignJob(string jobId, string userId)
     {
         var responseList = new List<InspectionTransaction>();

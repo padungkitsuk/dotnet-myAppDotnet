@@ -7,5 +7,8 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("jobId")]
         public string JobId { get; set; } = string.Empty;
 
+        [JsonPropertyName("seq")]
+        public int? Seq { get; set; } = 0;
+
     }
 }

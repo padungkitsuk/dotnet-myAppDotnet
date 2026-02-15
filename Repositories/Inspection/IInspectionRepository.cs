@@ -10,6 +10,7 @@ public interface IInspectionRepository {
     Task<List<InspectionTransaction>> CreateAsync(List<InspectionTransaction> d, string? fleetStatus);
     //Task<bool> UpdateJobHistory(InspectionTransactionHistory d);
     Task<IEnumerable<InspectionTransactionHistory>> GetJobHistory(string jobId);
+    Task<IEnumerable<InspectionTransactionHistory>> JobHistoryDelete(InspectionRequestJobId d);
     Task<IEnumerable<InspectionTaskDetail>> GetTaskDetailAsync(string jobId);
     Task<List<InspectionTaskResponse>> UpdateTask001(List<InspectionTaskRequest> tasks);
     Task<List<InspectionTaskResponse>> UpdateTask002(List<InspectionTaskRequest> tasks);

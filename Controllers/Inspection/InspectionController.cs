@@ -128,6 +128,25 @@ public class InspectionController : ControllerBase
         };
     }
 
+    [HttpPost("job/history/delete")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTransactionHistory>>>> JobHistoryDelete(InspectionRequestJobId d)
+    {
+        var result = await _inspectService.JobHistoryDelete(d);
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new ApiResponse<IEnumerable<InspectionTransactionHistory>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
     [HttpPost("detail/task")]
     public async Task<ActionResult<ApiResponse<IEnumerable<InspectionTransaction>>>> GetTaskDetailAsync(InspectionRequestJobId d)
     {

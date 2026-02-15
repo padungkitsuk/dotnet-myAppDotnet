@@ -243,6 +243,19 @@ public class InspectionService : IInspectionService
         };
     }
 
+    public async Task<ApiResponse<IEnumerable<InspectionTransactionHistory>>> JobHistoryDelete(InspectionRequestJobId d)
+    {
+        if(d.Seq == 1)
+        {
+            return new ApiResponse<IEnumerable<InspectionTransactionHistory>> { Message = StatusConstant.InvalidInfoMessage, Status = StatusConstant.InvalidInfoCode };
+        }
+        var result = await _repository.JobHistoryDelete(d);
+        return new ApiResponse<IEnumerable<InspectionTransactionHistory>>()
+        {
+            Data = result
+        };
+    }
+
     public async Task<ApiResponse<IEnumerable<InspectionTaskDetail>>> GetTaskDetailAsync(string jobId)
     {
         try
