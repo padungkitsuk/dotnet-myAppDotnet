@@ -102,6 +102,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("jobStatus")]
         public string? JobStatus { get; set; }
 
+        [JsonPropertyName("jobStatusDesc")]
+        public string? JobStatusDesc { get; set; } //สำหรับ แสดง สถานะ desc
+
         [JsonPropertyName("jobDesc")]
         public string? JobDesc { get; set; }
 
