@@ -98,11 +98,13 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("informerEmails")]
         public string? InformerEmails { get; set; }
 
-        [JsonPropertyName("statusCode")]
-        public string? StatusCode { get; set; }
 
-        [JsonPropertyName("status")]
-        public string? Status { get; set; }
+
+        [JsonPropertyName("taskCode")]
+        public string? TaskCode { get; set; }
+
+        [JsonPropertyName("taskDesc")]
+        public string? TaskDesc { get; set; }
 
 
     }

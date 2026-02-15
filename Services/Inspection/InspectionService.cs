@@ -82,10 +82,10 @@ public class InspectionService : IInspectionService
     {
         // 0101 = งานเข้าใหม่
         // log history
-        d.StatusCode = "0101"; 
-        d.Status = "งานเข้าใหม่"; 
-        // inspection
-        d.JobStatus = "0101"; 
+        d.TaskCode = "0101";
+        d.TaskDesc = "งานเข้าใหม่"; 
+        // inspection transaction
+        d.JobStatus = d.TaskCode; 
         d.JobCreateBy = userId;
         //_logger.LogInformation("Inspect req: {Json}", JsonSerializer.Serialize(d, _jsonOptions));
 
@@ -258,7 +258,7 @@ public class InspectionService : IInspectionService
             //, "4", "5", "6", "7" 
             };
             var targetTaskCompleteStatus = new HashSet<string> { "002" }; //002 = conplete
-            var targetTaskStatus = new HashSet<string> { "0528" }; // 0528 = ลบรอย Remark
+            //var targetTaskStatus = new HashSet<string> { "0528" }; // 0528 = ลบรอย Remark
 
             var generatedTasks = new List<InspectionTaskDetail>();
 
@@ -340,14 +340,14 @@ public class InspectionService : IInspectionService
         }
     }
 
-    private static (string? taskCode, string? taskDesc, string? round, string? nextTask) GetTaskMetadata(string? task, string? remarkCode)
+    private static (string? taskCode, string? taskDesc, int? taskSeq, string? nextTask) GetTaskMetadata(string? task, string? remarkCode)
     {
         return task switch
         {
-            "1" => ("0102","ติดตามนัดหมายลูกค้า", "1", "2"),
-            "2" => ("0103","ส่ง SV ออกตรวจสอบ", "1", "3"),
-            "3" => ("0104","ติดตาม SV", "1", "4"),
-            "4" => ("0105","รอผลตรวจรถยนต์", "1", null),
+            "1" => ("0102","ติดตามนัดหมายลูกค้า", 1, "2"),
+            "2" => ("0103","ส่ง SV ออกตรวจสอบ", 1, "3"),
+            "3" => ("0104","ติดตาม SV", 1, "4"),
+            "4" => ("0105","รอผลตรวจรถยนต์", 1, null),
 
             //Task 5 => check RemarkCode {01,02} => {ลบรอย Remark ติดตามนัดหมายลูกค้า, ลบรอย Remark รอผลตรวจรถยนต์}
             //"5" => (remarkCode == "01" ? "ลบรอย Remark ติดตามนัดหมายลูกค้า" : "ลบรอย Remark รอผลตรวจรถยนต์", "2", "6"),
@@ -366,7 +366,7 @@ public class InspectionService : IInspectionService
                 return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "No jobs to update", Status = StatusConstant.NotFoundCode };
 
             // 
-            var (taskCode, taskDesc, round, next) = GetTaskMetadata(d.Task, d.RemarkCode);
+            var (taskCode, taskDesc, taskSeq, next) = GetTaskMetadata(d.Task, d.RemarkCode);
 
             if (taskDesc == null) // ถ้าเลข Task ไม่ถูกต้อง
                 return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "Invalid Task Number", Status = StatusConstant.ErrorCode };
@@ -403,7 +403,7 @@ public class InspectionService : IInspectionService
                 newTask.TaskCompleteStatus = taskCompleteStatus;
                 newTask.TaskCompleteDate = newTask.AppointmentDatetime;
                 newTask.TaskCompleteBy = taskCompleteBy;
-                newTask.Round = round;
+                newTask.TaskSeq = taskSeq;
                 newTask.Action = null;
                 _logger.LogInformation("newTask : {Json}", JsonSerializer.Serialize(newTask, _jsonOptions));
                 return newTask;

@@ -102,9 +102,6 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("jobStatus")]
         public string? JobStatus { get; set; }
 
-        [JsonPropertyName("jobStatusDesc")]
-        public string? JobStatusDesc { get; set; }
-
         [JsonPropertyName("jobDesc")]
         public string? JobDesc { get; set; }
 
@@ -122,11 +119,13 @@ namespace MyBackend.Models.Inspection
 
 
 
-        [JsonPropertyName("statusCode")]
-        public string? StatusCode { get; set; }
+        [JsonPropertyName("taskCode")]
+        public string? TaskCode { get; set; }
 
-        [JsonPropertyName("status")]
-        public string? Status { get; set; }
+        [JsonPropertyName("taskDesc")]
+        public string? TaskDesc { get; set; }
+
+
         
     }
 }

@@ -26,8 +26,14 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("userName")]
         public string? UserName { get; set; }
 
+        [JsonPropertyName("code")]
+        public string? Code { get; set; }
+
         [JsonPropertyName("status")]
         public string? Status { get; set; }
+
+        [JsonPropertyName("jobCode")]
+        public string? JobCode { get; set; }
 
         [JsonPropertyName("jobStatus")]
         public string? JobStatus { get; set; }

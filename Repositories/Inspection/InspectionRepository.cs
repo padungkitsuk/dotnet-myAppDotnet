@@ -45,19 +45,42 @@ public class InspectionRepository : IInspectionRepository
         LEFT JOIN master_job_state mjs ON it.job_status = mjs.state_code
         WHERE 1=1 
         ");
+
+        var parameters = new DynamicParameters();
         if (!string.IsNullOrEmpty(d.JobId))
         {
-            sql.Append(" AND it.job_id = '" + d.JobId + "' ");
+            sql.Append(" AND it.job_id = @JobId ");
+            parameters.Add("JobId", d.JobId);
         }
 
-        sql.Append(" ORDER BY it.job_id ");
+        // -- 1. เรียงตามปี -- 2. เรียงตามลำดับ -- 3. กรณีเป็นตัวอักษร
+        sql.Append(@" ORDER BY 
+	    TRY_CAST(
+	        CASE WHEN CHARINDEX('/', it.job_id) > 0 
+	             THEN LEFT(it.job_id, CHARINDEX('/', it.job_id) - 1) 
+	             ELSE it.job_id 
+	        END AS INT
+	    ) DESC,
+	    CASE WHEN CHARINDEX('/', it.job_id) > 0 
+	         THEN LEFT(it.job_id, CHARINDEX('/', it.job_id) - 1) 
+	         ELSE it.job_id 
+	    END DESC,
+	    TRY_CAST(
+	        CASE WHEN CHARINDEX('/', it.job_id) > 0 
+	             THEN SUBSTRING(it.job_id, CHARINDEX('/', it.job_id) + 1, LEN(it.job_id)) 
+	             ELSE '0' 
+	        END AS INT
+	    ) DESC,
+	    it.job_id DESC ");
+
         using var db = _context.CreateConnection();
 
-        var allData = await db.QueryAsync<InspectionTransaction>(sql.ToString());
+        var allData = await db.QueryAsync<InspectionTransaction>(sql.ToString(), parameters);
+
         var totalItems = allData.Count();
         var pagedData = allData
-        .OrderBy(t => t.JobId)
-        .ThenByDescending(t => t.JobCreateDate)
+        //.OrderBy(t => t.JobId)
+        //.ThenByDescending(t => t.JobCreateDate)
             .Skip((d.PageNo - 1) * d.PageSize)
             .Take(d.PageSize)
             .ToList();
@@ -126,11 +149,11 @@ public class InspectionRepository : IInspectionRepository
              @CarPlateNo, @CarProvince, @CarBrand, @CarModel, @CarSubModel, @ChassisNumber, 
              @AppointmentStatus, @NoSurveyStatus, @NoSurveyCode, @NoSurveyDesc, @JobStatus, @JobDesc,
 			 @InformerFirstName, @InformerLastName, @InformerPhone, @InformerEmails);
-            
+
             INSERT INTO inspection_transaction_history 
-             (job_id, seq, create_date, create_by,    status_code, status,   job_status, job_desc) 
+             (job_id, seq, create_date, create_by,    code,      status,    job_status, job_desc) 
             VALUES
-             (@JobId, 1,   GETDATE(),   @JobCreateBy, @StatusCode, @Status,       '-',      '-');
+             (@JobId, 1,   GETDATE(),   @JobCreateBy, @TaskCode, @TaskDesc,       '-',      '-');
              ";
 
             string? newFleetId = (fleetStatus == "Y") ? await _seq.GetNextFleetValue() : null;
@@ -254,33 +277,33 @@ public class InspectionRepository : IInspectionRepository
 
         var sql = new StringBuilder(@"
             WITH AllTasks AS (
-                SELECT '1' as t_type, '02' as group_code, job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
+                SELECT '1' as t_type, '02' as group_code, job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
                     NULL as survey_date, NULL as survey_company_code, NULL as survey_company_type, NULL as survey_location_region, NULL as survey_location_province, NULL as survey_location_district, NULL as survey_price1, NULL as survey_price2, 
                     NULL as verify_result_datetime , NULL as result_report , NULL as mile_number , NULL as car_modification , NULL as car_inspection_result , 
                     NULL as car_type , NULL as spare , NULL as gas, NULL as gas_number , NULL as gas_type , NULL as gas_price , NULL as modify_vehicle ,NULL as remark_code
                 FROM inspection_task_001
                 UNION ALL
-                SELECT '2', '03', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
+                SELECT '2', '03', job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
                     survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2,
                     NULL, NULL, NULL, NULL, NULL,   
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
                 FROM inspection_task_002
                 UNION ALL
-                SELECT '3', '04', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
+                SELECT '3', '04', job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
                     NULL, NULL, NULL, NULL, NULL,   
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL 
                 FROM inspection_task_003
                 UNION ALL
-                SELECT '4', '05', job_id, round, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
+                SELECT '4', '05', job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
                     verify_result_datetime ,result_report ,mile_number ,car_modification ,car_inspection_result ,
                     car_type ,spare ,gas, gas_number ,gas_type ,gas_price ,modify_vehicle ,remark_code 
                 FROM inspection_task_004
             )
             SELECT 
-                -- คำนวณลำดับ Task อัตโนมัติ (Task 1-4 สำหรับ Round 1, 5-8 สำหรับ Round 2, 9-12 สำหรับ Round 3)
-                CAST(((CAST(round AS INT) - 1) * 4) + CAST(t_type AS INT) AS VARCHAR(10)) as task,
+                -- คำนวณลำดับ Task อัตโนมัติ (Task 1-4 สำหรับ seq 1, 5-8 สำหรับ seq 2, 9-12 สำหรับ seq 3)
+                CAST(((t.seq - 1) * 4) + CAST(t_type AS INT) AS VARCHAR(10)) as task,
                 t.task_desc,
                 t.task_complete_status,
                 CASE WHEN t.task_complete_status = '002' THEN 'Complete' ELSE 'In Progress' END as task_complete_status_desc,
@@ -310,8 +333,8 @@ public class InspectionRepository : IInspectionRepository
             LEFT JOIN master_job_state mjs ON mjs.group_code = t.group_code AND mjs.state_code = t.task_status
             LEFT JOIN inspection_transaction it ON t.job_id = it.job_id
             WHERE t.job_id = @JobId 
-            --AND t.round IN ('1', '2')
-            ORDER BY CAST(round AS INT), CAST(t_type AS INT);
+            --AND t.seq IN (1, 2)
+            ORDER BY t.seq, CAST(t_type AS INT);
         ");
 
         using var db = _context.CreateConnection();
@@ -331,17 +354,18 @@ public class InspectionRepository : IInspectionRepository
         // SQL ไม่ต้องมี Transaction ซ้อน
         const string sql = @" 
         DECLARE @StepLog bit=0
-        IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND round = @Round)
+        IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND seq = @TaskSeq)
         BEGIN
             INSERT INTO inspection_task_001 
-            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, appointment_datetime, task_detail, task_create_date, task_create_by) 
+            (job_id, seq, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, appointment_datetime, task_detail, task_create_date, task_create_by) 
             VALUES
-            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus, @AppointmentDatetime, @TaskDetail, GETDATE(), @TaskCreateBy);
+            (@JobId, @TaskSeq, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus, @AppointmentDatetime, @TaskDetail, GETDATE(), @TaskCreateBy);
+			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
 			SET @StepLog = 1;
         END
         ELSE
         BEGIN
-	        IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
+	        IF NOT EXISTS (SELECT 1 FROM inspection_task_001 WHERE job_id = @JobId AND seq = @TaskSeq AND task_complete_status = '002')
 	        BEGIN
             UPDATE inspection_task_001 SET 
                 task_complete_status = @TaskCompleteStatus, 
@@ -352,7 +376,8 @@ public class InspectionRepository : IInspectionRepository
                 task_detail = @TaskDetail,
                 task_update_date = GETDATE(),
                 task_update_by = @TaskCreateBy
-            WHERE job_id = @JobId AND round = @Round;
+            WHERE job_id = @JobId AND seq = @TaskSeq;
+			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
 			SET @StepLog = 1;
 			END
         END
@@ -362,9 +387,9 @@ public class InspectionRepository : IInspectionRepository
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='02' and mjs.state_code = @TaskStatus;
         INSERT INTO inspection_transaction_history 
-          (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
+          (job_id, seq,      create_date, create_by,     code,      status,    job_code,    job_status,      job_desc) 
         VALUES
-          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskCode, @TaskDesc, @TaskStatus, @TaskStatusDesc, @TaskDetail);
 		END
         SELECT 1;
         ";
@@ -403,19 +428,20 @@ public class InspectionRepository : IInspectionRepository
         // SQL ไม่ต้องมี Transaction ซ้อน
         const string sql = @" 
         DECLARE @StepLog bit=0
-        IF NOT EXISTS (SELECT 1 FROM inspection_task_002 WHERE job_id = @JobId AND round = @Round)
+        IF NOT EXISTS (SELECT 1 FROM inspection_task_002 WHERE job_id = @JobId AND seq = @TaskSeq)
         BEGIN
             INSERT INTO inspection_task_002 
-            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
+            (job_id, seq, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
             survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2) 
             VALUES
-            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy,
+            (@JobId, @TaskSeq, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy,
 			@SurveyDate, @SurveyCompanyCode,  @SurveyCompanyType,  @SurveyLocationRegion,  @SurveyLocationProvince,  @SurveyLocationDistrict,  @SurveyPrice1,  @SurveyPrice2);
+			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
 			SET @StepLog = 1;
         END
         ELSE
         BEGIN
-	        IF NOT EXISTS (SELECT 1 FROM inspection_task_002 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
+	        IF NOT EXISTS (SELECT 1 FROM inspection_task_002 WHERE job_id = @JobId AND seq = @TaskSeq AND task_complete_status = '002')
 	        BEGIN
             UPDATE inspection_task_002 SET 
                 task_complete_status = @TaskCompleteStatus, 
@@ -433,7 +459,8 @@ public class InspectionRepository : IInspectionRepository
                 survey_location_district = @SurveyLocationDistrict, 
                 survey_price1 = @SurveyPrice1, 
                 survey_price2 = @SurveyPrice2
-            WHERE job_id = @JobId AND round = @Round;
+            WHERE job_id = @JobId AND seq = @TaskSeq;
+			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
 			SET @StepLog = 1;
 			END
         END
@@ -443,9 +470,9 @@ public class InspectionRepository : IInspectionRepository
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='03' and mjs.state_code = @TaskStatus;
         INSERT INTO inspection_transaction_history 
-          (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
+          (job_id, seq,      create_date, create_by,     code,      status,    job_code,    job_status,      job_desc) 
         VALUES
-          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskCode, @TaskDesc, @TaskStatus, @TaskStatusDesc, @TaskDetail);
 		END
         SELECT 1;
         ";
@@ -483,17 +510,18 @@ public class InspectionRepository : IInspectionRepository
 
         const string sql = @" 
         DECLARE @StepLog bit=0
-        IF NOT EXISTS (SELECT 1 FROM inspection_task_003 WHERE job_id = @JobId AND round = @Round)
+        IF NOT EXISTS (SELECT 1 FROM inspection_task_003 WHERE job_id = @JobId AND seq = @TaskSeq)
         BEGIN
             INSERT INTO inspection_task_003 
-            (job_id, round, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by) 
+            (job_id, seq, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by) 
             VALUES
-            (@JobId, @Round, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy,  @TaskStatus,  @TaskDetail, GETDATE(),       @TaskCreateBy);
+            (@JobId, @TaskSeq, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy,  @TaskStatus,  @TaskDetail, GETDATE(),       @TaskCreateBy);
+			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
 			SET @StepLog = 1;
         END
         ELSE
         BEGIN
-	        IF NOT EXISTS (SELECT 1 FROM inspection_task_003 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
+	        IF NOT EXISTS (SELECT 1 FROM inspection_task_003 WHERE job_id = @JobId AND seq = @TaskSeq AND task_complete_status = '002')
 	        BEGIN
             UPDATE inspection_task_003 SET 
                 task_complete_status = @TaskCompleteStatus, 
@@ -503,7 +531,8 @@ public class InspectionRepository : IInspectionRepository
                 task_detail = @TaskDetail,
                 task_update_date = GETDATE(),
                 task_update_by = @TaskCreateBy
-            WHERE job_id = @JobId AND round = @Round;
+            WHERE job_id = @JobId AND seq = @TaskSeq;
+			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
 			SET @StepLog = 1;
 			END
         END
@@ -513,9 +542,9 @@ public class InspectionRepository : IInspectionRepository
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='04' and mjs.state_code = @TaskStatus;
         INSERT INTO inspection_transaction_history 
-          (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
+          (job_id, seq,      create_date, create_by,     code,      status,    job_code,    job_status,      job_desc) 
         VALUES
-          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskCode, @TaskDesc, @TaskStatus, @TaskStatusDesc, @TaskDetail);
 		END
         SELECT 1;
         ";
@@ -554,21 +583,22 @@ public class InspectionRepository : IInspectionRepository
         // SQL ไม่ต้องมี Transaction ซ้อน
         const string sql = @" 
         DECLARE @StepLog bit=0
-        IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND round = @Round)
+        IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND seq = @TaskSeq)
         BEGIN
             INSERT INTO inspection_task_004 
-            (job_id, round, appointment_datetime, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
+            (job_id, seq, appointment_datetime, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by,
              result_report, verify_result_datetime, mile_number, inspection_datetime, car_modification, car_inspection_result, car_type,
 			 spare,  gas,   gas_number, gas_type,   gas_price, modify_vehicle, remark_code) 
             VALUES
-            (@JobId, @Round,  @AppointmentDatetime, @TaskDesc,  @TaskCompleteStatus,   @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy,
+            (@JobId, @TaskSeq,  @AppointmentDatetime, @TaskDesc,  @TaskCompleteStatus,   @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy,
 			 @ResultReport, @VerifyResultDatetime,  @MileNumber, @InspectionDatetime,  @CarModification, @CarInspectionResult, @CarType,
 			 @Spare, @Gas,   @GasNumber,  @GasType, @GasPrice,    @ModifyVehicle, @RemarkCode);
+			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
 			SET @StepLog = 1;
         END
         ELSE
         BEGIN
-	        IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND round = @Round AND task_complete_status = '002')
+	        IF NOT EXISTS (SELECT 1 FROM inspection_task_004 WHERE job_id = @JobId AND seq = @TaskSeq AND task_complete_status = '002')
 	        BEGIN
             UPDATE inspection_task_004 SET 
                 appointment_datetime = @AppointmentDatetime,
@@ -593,7 +623,8 @@ public class InspectionRepository : IInspectionRepository
                 gas_price = @GasPrice, 
                 modify_vehicle = @ModifyVehicle,
                 remark_code = @RemarkCode
-            WHERE job_id = @JobId AND round = @Round;
+            WHERE job_id = @JobId AND seq = @TaskSeq;
+			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
 			SET @StepLog = 1;
 			END
         END  
@@ -603,9 +634,9 @@ public class InspectionRepository : IInspectionRepository
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
 		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='05' and mjs.state_code = @TaskStatus;
         INSERT INTO inspection_transaction_history 
-          (job_id, seq,      create_date, create_by,     status,    job_status, job_desc) 
+          (job_id, seq,      create_date, create_by,     code,      status,    job_code,    job_status,      job_desc) 
         VALUES
-          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskDesc, @TaskStatusDesc, @TaskDetail);
+          (@JobId, @LastSeq, GETDATE(),   @TaskCreateBy, @TaskCode, @TaskDesc, @TaskStatus, @TaskStatusDesc, @TaskDetail);
 		END
         SELECT 1;
         ";
@@ -668,11 +699,14 @@ public class InspectionRepository : IInspectionRepository
             format(create_date,'dd-MM-yyyy HH:mm:ss') create_date,
             create_by as user_id,
             create_by as user_name,
+            code,
             status,
+            job_code,
             job_status ,
-            job_desc 
+            job_desc ,
+            seq
             FROM inspection_transaction_history  
-            WHERE job_id = @jobId
+            WHERE job_id = @JobId
             ORDER BY create_date desc
         ";
 
@@ -692,7 +726,7 @@ public class InspectionRepository : IInspectionRepository
 
         const string sql = @" 
         UPDATE inspection_transaction 
-        SET job_assign = @userId 
+        SET job_owner = @userId 
         WHERE job_id = @jobId
     ";
 

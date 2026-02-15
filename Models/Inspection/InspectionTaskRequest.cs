@@ -15,8 +15,8 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("jobId")]
         public string? JobId { get; set; }
 
-        [JsonPropertyName("round")]
-        public string? Round { get; set; }
+        [JsonPropertyName("taskSeq")]
+        public int? TaskSeq { get; set; }
 
         [JsonPropertyName("taskCode")]
         public string? TaskCode { get; set; }
