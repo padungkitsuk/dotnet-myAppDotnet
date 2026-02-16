@@ -439,7 +439,7 @@ public class InspectionService : IInspectionService
             else
             {
                 ClearReportData(d);
-                if(d.Task == "2")
+                if(d.Task == "2" && d.TaskStatus == "cancel")
                 {
                     ClearServeyData(d);
                 }
