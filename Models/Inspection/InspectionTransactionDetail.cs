@@ -11,6 +11,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("detail")]
         public InspectionTransaction? Detail { get; set; }
 
+        [JsonPropertyName("list")]
+        public IEnumerable<InspectionTaskDetail>? List { get; set; }
+
     }
 
     public class JobList

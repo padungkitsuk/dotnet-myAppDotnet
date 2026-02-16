@@ -11,13 +11,14 @@ public interface IInspectionRepository {
     //Task<bool> UpdateJobHistory(InspectionTransactionHistory d);
     Task<IEnumerable<InspectionTransactionHistory>> GetJobHistory(string jobId);
     Task<IEnumerable<InspectionTransactionHistory>> JobHistoryDelete(InspectionRequestJobId d);
-    Task<IEnumerable<InspectionTaskDetail>> GetTaskDetailAsync(string jobId);
+    Task<IEnumerable<InspectionTaskDetail>> GetDetailTaskAsync(string jobId);
     Task<List<InspectionTaskResponse>> UpdateTask001(List<InspectionTaskRequest> tasks);
     Task<List<InspectionTaskResponse>> UpdateTask002(List<InspectionTaskRequest> tasks);
     Task<List<InspectionTaskResponse>> UpdateTask003(List<InspectionTaskRequest> tasks);
     Task<List<InspectionTaskResponse>> UpdateTask004(List<InspectionTaskRequest> tasks);
     Task<List<VehicleInfo>> GetCarInfo(IEnumerable<string> carPlateNos);
     Task<List<JobList>> GetJobListInfo(string fleetId);
+    Task<List<JobList>> GetJobListInfoById(string jobId);
     Task<string> GetSeq();
     Task<List<InspectionTransaction>> AssignJob(string jobId, string userId);
     Task<IEnumerable<InspectionModifyVehicle>> GetModifyVehicle(string jobId);

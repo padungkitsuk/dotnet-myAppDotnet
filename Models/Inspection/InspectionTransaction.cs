@@ -128,6 +128,12 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("taskDesc")]
         public string? TaskDesc { get; set; }
 
+        [JsonPropertyName("currentStatus")]
+        public string? CurrentStatus { get; set; }
+
+        [JsonPropertyName("currentStatusDesc")]
+        public string? CurrentStatusDesc { get; set; }
+
 
         
     }

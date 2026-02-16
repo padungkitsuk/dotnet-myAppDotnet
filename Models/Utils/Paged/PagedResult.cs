@@ -11,6 +11,16 @@ namespace MyBackend.Models.Utils.Paged
         [JsonPropertyName("status")]
         public string Status { get; set; } = "00";
 
+        [JsonPropertyName("pagination")]
+        public Pagination Pagination { get; set; } = new ();
+
+        [JsonPropertyName("data")]
+        public T? Data { get; set; } 
+        //public IEnumerable<T> Data { get; set; } = [];
+    }
+
+    public class Pagination
+    {
         [JsonPropertyName("pageNo")]
         public int PageNo { get; set; }   
 
@@ -22,9 +32,5 @@ namespace MyBackend.Models.Utils.Paged
 
         [JsonPropertyName("totalPage")]
         public int TotalPage => PageSize > 0 ? (int)Math.Ceiling((double)TotalRow / PageSize) : 0;
-
-        [JsonPropertyName("data")]
-        //public IEnumerable<T> Data { get; set; } = [];
-        public T? Data { get; set; }
     }
 }

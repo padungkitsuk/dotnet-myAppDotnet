@@ -37,7 +37,35 @@ public class InspectionService : IInspectionService
 
     public async Task<PagedResult<IEnumerable<InspectionTransaction>>> GetPagedAsync(RequestDataInspection d)
     {
-        return await _repository.GetPagedAsync(d);
+        try
+        {
+            var result = await _repository.GetPagedAsync(d);
+            _logger.LogInformation("size {size} search by {Json}",result?.Data?.Count(), JsonSerializer.Serialize(d, _jsonOptions));
+            if(result == null || result.Data == null || !result.Data.Any())
+            {
+                return new PagedResult<IEnumerable<InspectionTransaction>>
+                {
+                    Message = StatusConstant.NotFoundMessage,
+                    Status = StatusConstant.NotFoundCode,
+                    Pagination = new Pagination()
+                    {
+                        PageNo = d.PageNo,
+                        PageSize = d.PageSize,
+                        TotalRow = 0
+                    }
+                };
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "เกิดข้อผิดพลาดใน GetPagedAsync");
+            return new PagedResult<IEnumerable<InspectionTransaction>>()
+            {
+                Message = StatusConstant.ErrorMessage,
+                Status = StatusConstant.ErrorCode
+            };
+        }
     }
 
     public async Task<ApiResponse<InspectionTransactionDetail>> GetByIdAsync(RequestDataInspection d)
@@ -51,13 +79,35 @@ public class InspectionService : IInspectionService
             if (detail == null)
                 return new ApiResponse<InspectionTransactionDetail> { Message = StatusConstant.NotFoundMessage, Status = StatusConstant.NotFoundCode };
 
-            _logger.LogInformation("GetByIdAsync id: {id} res: {Json}", d.JobId, JsonSerializer.Serialize(detail, _jsonOptions));
+            _logger.LogInformation("{id} detail: {Json}", d.JobId, JsonSerializer.Serialize(detail, _jsonOptions));
+
+            if(string.IsNullOrEmpty(detail.JobOwner) && detail.JobStatus == "0101")
+            {
+                detail.CurrentStatus = detail.JobStatus;
+                detail.CurrentStatusDesc = detail.JobStatusDesc;
+            }
+            else 
+            {
+                var (task, taskDesc, nextStatus, nextStatusDesc) = GetNextTaskMetadata(detail.JobStatus);
+                if (!string.IsNullOrEmpty(nextStatus))
+                {
+                    detail.CurrentStatus = nextStatus;
+                    detail.CurrentStatusDesc = nextStatusDesc;
+                }
+                else
+                {
+                    detail.CurrentStatus = detail.JobStatus;
+                    detail.CurrentStatusDesc = detail.JobStatusDesc;
+                }
+            }
+            _logger.LogInformation("{id} current: {status} {desc}", d.JobId, detail.CurrentStatus, detail.CurrentStatusDesc);
 
             var result = new InspectionTransactionDetail { Detail = detail };
 
             if (detail.FleetStatus == "Y" && !string.IsNullOrEmpty(detail.FleetId))
             {
                 result.JobList = await _repository.GetJobListInfo(detail.FleetId);
+                 _logger.LogInformation("{id} fleet: {Json}", d.JobId, JsonSerializer.Serialize(result.JobList, _jsonOptions));
             }
             else
             {
@@ -256,13 +306,13 @@ public class InspectionService : IInspectionService
         };
     }
 
-    public async Task<ApiResponse<IEnumerable<InspectionTaskDetail>>> GetTaskDetailAsync(string jobId)
+    public async Task<ApiResponse<InspectionTransactionDetail>> GetDetailTaskAsync(string jobId)
     {
         try
         {
-            var resultData = await _repository.GetTaskDetailAsync(jobId);
+            var resultData = await _repository.GetDetailTaskAsync(jobId);
             if (resultData == null)
-                return new ApiResponse<IEnumerable<InspectionTaskDetail>> { Message = "Data not found", Status = StatusConstant.NotFoundCode };
+                return new ApiResponse<InspectionTransactionDetail> { Message = "Data not found", Status = StatusConstant.NotFoundCode };
 
             // convert to List use .Concat / .AddRange
             var resultList = resultData.ToList();
@@ -278,7 +328,7 @@ public class InspectionService : IInspectionService
             if (resultList.Count == 0)
             {
                 var nextTaskNo = "1";
-                var nextTaskDesc = GetTaskMetadata(nextTaskNo, null).taskDesc;
+                var nextTaskDesc = GetTaskMetadata1(nextTaskNo, null).taskDesc;
                 generatedTasks.Add(new InspectionTaskDetail
                 {
                     Task = nextTaskNo,
@@ -308,7 +358,7 @@ public class InspectionService : IInspectionService
                             bool alreadyExists = resultList.Any(x => x.Task == nextTaskNo);
                             if (!alreadyExists)
                             {
-                                var nextTaskDesc = GetTaskMetadata(nextTaskNo, lastCompletedTask.RemarkCode).taskDesc;
+                                var nextTaskDesc = GetTaskMetadata1(nextTaskNo, lastCompletedTask.RemarkCode).taskDesc;
                                 generatedTasks.Add(new InspectionTaskDetail
                                 {
                                     Task = nextTaskNo,
@@ -335,40 +385,33 @@ public class InspectionService : IInspectionService
             // final 
             var finalData = resultList.Concat(generatedTasks);
 
-            _logger.LogInformation("Task List: {Count}, Added: {NewCount}", resultList.Count, generatedTasks.Count);
+            // get fleet
+            var fleets = await _repository.GetJobListInfoById(jobId);
+            _logger.LogInformation("{id} fleets: {fleets}", jobId, JsonSerializer.Serialize(fleets, _jsonOptions));
 
-            return new ApiResponse<IEnumerable<InspectionTaskDetail>>
+            var result = new InspectionTransactionDetail()
             {
-                Data = finalData
+                JobList = fleets,
+                List = finalData
+            };
+             _logger.LogInformation("{id} result: {fleets}", jobId, JsonSerializer.Serialize(result, _jsonOptions));
+
+            _logger.LogInformation("{id} lists: {Count}, Added: {NewCount}", jobId, resultList.Count, generatedTasks.Count);
+
+            return new ApiResponse<InspectionTransactionDetail>
+            {
+                Data = result
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "GetTaskDetailAsync Error: {Message}", ex.Message);
-            return new ApiResponse<IEnumerable<InspectionTaskDetail>>
+            return new ApiResponse<InspectionTransactionDetail>
             {
                 Message = StatusConstant.ErrorMessage,
                 Status = StatusConstant.ErrorCode
             };
         }
-    }
-
-    private static (string? taskCode, string? taskDesc, int? taskSeq, string? nextTask) GetTaskMetadata(string? task, string? remarkCode)
-    {
-        return task switch
-        {
-            "1" => ("0102","ติดตามนัดหมายลูกค้า", 1, "2"),
-            "2" => ("0103","ส่ง SV ออกตรวจสอบ", 1, "3"),
-            "3" => ("0104","ติดตาม SV", 1, "4"),
-            "4" => ("0105","รอผลตรวจรถยนต์", 1, null),
-
-            //Task 5 => check RemarkCode {01,02} => {ลบรอย Remark ติดตามนัดหมายลูกค้า, ลบรอย Remark รอผลตรวจรถยนต์}
-            //"5" => (remarkCode == "01" ? "ลบรอย Remark ติดตามนัดหมายลูกค้า" : "ลบรอย Remark รอผลตรวจรถยนต์", "2", "6"),
-            //"6" => ("ส่ง SV ออกตรวจสอบ", "2", "7"),
-            //"7" => ("ติดตาม SV", "2", "8"),
-            //"8" => ("รอผลตรวจรถยนต์", "2", null),
-            _ => (null, null, null, null)
-        };
     }
 
     public async Task<ApiResponse<IEnumerable<InspectionTaskResponse>>> UpdateTaskAsync(InspectionTaskRequest d)
@@ -378,31 +421,36 @@ public class InspectionService : IInspectionService
             if (d.JobList == null || d.JobList.Count == 0)
                 return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "No jobs to update", Status = StatusConstant.NotFoundCode };
 
-            // 
-            var (taskCode, taskDesc, taskSeq, next) = GetTaskMetadata(d.Task, d.RemarkCode);
+            // get task detail
+            var (taskCode, taskDesc, taskSeq, next) = GetTaskMetadata1(d.Task, d.RemarkCode);
 
             if (taskDesc == null) // ถ้าเลข Task ไม่ถูกต้อง
                 return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "Invalid Task Number", Status = StatusConstant.ErrorCode };
 
             /// Task 4,8 => validate report = Y
-            if (d.Task == "4" || d.Task == "8")
+            if (d.Task == "4")
             {
                 // codition
+                if(d.TaskStatus == "cancel")
+                {
+                    ClearReportData(d);
+                }
             }
             else
             {
                 ClearReportData(d);
+                if(d.Task == "2")
+                {
+                    ClearServeyData(d);
+                }
+
             }
 
             // Action => {save 001=In Progress}, {002=Complete}
             var (taskCompleteStatus, taskCompleteDate, taskCompleteBy, nextTask, nextTaskDesc) = d.Action switch
             {
                 "save" => ("001", (string?)null, (string?)null, (string?)null, (string?)null),
-                "complete" => ("002",
-                DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
-                d.TaskCreateBy,
-                next,
-                GetTaskMetadata(next, d.RemarkCode).taskDesc),
+                "complete" => ("002", DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture), d.TaskCreateBy, next, GetTaskMetadata1(next, d.RemarkCode).taskDesc),
                 _ => (null, null, null, null, null)
             };
 
@@ -426,16 +474,17 @@ public class InspectionService : IInspectionService
 
             var resultTask = d.Task switch
             {
-                "1" or "5" => _repository.UpdateTask001(tasks),
-                "2" or "6" => _repository.UpdateTask002(tasks),
-                "3" or "7" => _repository.UpdateTask003(tasks),
-                "4" or "8" => _repository.UpdateTask004(tasks),
+                "1" => _repository.UpdateTask001(tasks),
+                "2" => _repository.UpdateTask002(tasks),
+                "3" => _repository.UpdateTask003(tasks),
+                "4" => _repository.UpdateTask004(tasks),
                 _ => Task.FromResult(new List<InspectionTaskResponse>())
             };
 
             var result = await resultTask;
 
-            if (result == null || result.Count == 0) return new ApiResponse<IEnumerable<InspectionTaskResponse>>() { Message = StatusConstant.ErrorMessage, Status = StatusConstant.ErrorCode };
+            if (result == null || result.Count == 0)
+                return new ApiResponse<IEnumerable<InspectionTaskResponse>>() { Message = StatusConstant.ErrorMessage, Status = StatusConstant.ErrorCode };
 
             foreach (var item in result)
             {
@@ -462,6 +511,7 @@ public class InspectionService : IInspectionService
         d.VerifyResultDatetime = null;
         d.MileNumber = null;
         d.InspectionDatetime = null;
+        d.CarModification = null;
         d.CarInspectionResult = null;
         d.CarType = null;
         d.Spare = null;
@@ -471,6 +521,19 @@ public class InspectionService : IInspectionService
         d.GasPrice = null;
         d.ModifyVehicle = null;
         d.ModifyVehicleList = [];
+        d.RemarkCode = null;
+    }
+
+    private static void ClearServeyData(InspectionTaskRequest d)
+    {
+        d.SurveyDate = null; 
+        d.SurveyCompanyCode = null;  
+        d.SurveyCompanyType = null;  
+        d.SurveyLocationRegion = null;  
+        d.SurveyLocationProvince = null;  
+        d.SurveyLocationDistrict = null;  
+        d.SurveyPrice1 = null;
+        d.SurveyPrice2 = null;
     }
 
     public async Task<string> GetSeq()
@@ -495,5 +558,40 @@ public class InspectionService : IInspectionService
                 Status = StatusConstant.ErrorCode
             };
         }
+    }
+
+
+    
+    /// 
+    /// function 
+    /// 
+    private static (string? taskCode, string? taskDesc, int? taskSeq, string? nextTask) GetTaskMetadata1(string? task, string? remarkCode)
+    {
+        return task switch
+        {
+            "1" => ("0102","ติดตามนัดหมายลูกค้า", 1, "2"),
+            "2" => ("0103","ส่ง SV ออกตรวจสอบ", 1, "3"),
+            "3" => ("0104","ติดตาม SV", 1, "4"),
+            "4" => ("0105","รอผลตรวจรถยนต์", 1, null),
+
+            //Task 5 => check RemarkCode {01,02} => {ลบรอย Remark ติดตามนัดหมายลูกค้า, ลบรอย Remark รอผลตรวจรถยนต์}
+            //"5" => (remarkCode == "01" ? "ลบรอย Remark ติดตามนัดหมายลูกค้า" : "ลบรอย Remark รอผลตรวจรถยนต์", "2", "6"),
+            //"6" => ("ส่ง SV ออกตรวจสอบ", "2", "7"),
+            //"7" => ("ติดตาม SV", "2", "8"),
+            //"8" => ("รอผลตรวจรถยนต์", "2", null),
+            _ => (null, null, null, null)
+        };
+    }
+
+    private static (string? task, string? taskDesc, string? nextStatus, string? nextStatusDesc) GetNextTaskMetadata(string? jobStatus)
+    {
+        return jobStatus switch
+        {
+            "0102" => ("1", "ติดตามนัดหมายลูกค้า", "0103", "ส่ง SV ออกตรวจสอบ"),
+            "0103" => ("2", "ส่ง SV ออกตรวจสอบ", "0104", "ติดตาม SV"),
+            "0104" => ("3", "ติดตาม SV", "0105", "รอผลตรวจรถยนต์"),
+            "0105" => ("4", "รอผลตรวจรถยนต์", null, null),
+            _ => (null, null, null, null)
+        };
     }
 }

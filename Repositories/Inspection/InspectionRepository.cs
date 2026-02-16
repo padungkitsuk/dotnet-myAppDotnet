@@ -35,15 +35,16 @@ public class InspectionRepository : IInspectionRepository
 	        it.car_province, 
 	        mp.desc_th as car_province_desc, 
 	        it.car_brand, it.car_model, it.car_sub_model, it.chassis_number, 
-	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc, 
-	        it.job_status, 
+	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc,
+	        it.cancel_status ,
+	        case when it.cancel_status = 'cancel' then it.cancel_status else it.job_status end as job_status, 
 	        mjs.state_desc as job_status_desc,
 	        it.job_desc,
 	        it.informer_first_name, it.informer_last_name, it.informer_phone, it.informer_emails 
         FROM inspection_transaction it
         LEFT JOIN master_province mp ON it.car_province = mp.code
-        LEFT JOIN master_job_state mjs ON it.job_status = mjs.state_code
-        WHERE 1=1 
+        LEFT JOIN master_job_state mjs ON mjs.state_code = (case when it.cancel_status = 'cancel' then it.cancel_status else it.job_status end)
+        WHERE 1=1  
         ");
 
         var parameters = new DynamicParameters();
@@ -87,9 +88,12 @@ public class InspectionRepository : IInspectionRepository
 
         return new PagedResult<IEnumerable<InspectionTransaction>>
         {
-            TotalRow = totalItems,
-            PageNo = d.PageNo,
-            PageSize = d.PageSize,
+            Pagination = new Pagination()
+            {
+                TotalRow = totalItems,
+                PageNo = d.PageNo,
+                PageSize = d.PageSize,
+            },
             Data = pagedData
         };
     }
@@ -106,14 +110,15 @@ public class InspectionRepository : IInspectionRepository
 	        it.car_province, 
 	        mp.desc_th as car_province_desc, 
 	        it.car_brand, it.car_model, it.car_sub_model, it.chassis_number, 
-	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc, 
-	        it.job_status, 
+	        it.appointment_status, it.no_survey_status, it.no_survey_code, it.no_survey_desc,
+	        it.cancel_status ,
+	        case when it.cancel_status = 'cancel' then it.cancel_status else it.job_status end as job_status, 
 	        mjs.state_desc as job_status_desc,
 	        it.job_desc,
 	        it.informer_first_name, it.informer_last_name, it.informer_phone, it.informer_emails 
         FROM inspection_transaction it
         LEFT JOIN master_province mp ON it.car_province = mp.code
-        LEFT JOIN master_job_state mjs ON it.job_status = mjs.state_code
+        LEFT JOIN master_job_state mjs ON mjs.state_code = (case when it.cancel_status = 'cancel' then it.cancel_status else it.job_status end)
         WHERE it.job_id = @JobId
         ";
         using var db = _context.CreateConnection();
@@ -267,35 +272,61 @@ public class InspectionRepository : IInspectionRepository
         return [.. result];
     }
 
+    public async Task<List<JobList>> GetJobListInfoById(string jobId)
+    {
+        const string sql = @"
+        DECLARE @fleetId varchar(20), @fleetCount int;
+        select @fleetId = fleet_id from inspection_transaction where job_id = @jobId;
+		select @fleetCount = count(fleet_id) from inspection_transaction where fleet_id = @fleetId;
+		if(@fleetCount > 0)
+		begin
+	        select job_id, car_plate_no  
+	        from inspection_transaction 
+	        where fleet_id = @fleetId;
+		end
+		else
+		begin
+			select job_id, car_plate_no  
+	        from inspection_transaction 
+	        where job_id = @jobId;
+		end
+        ";
+
+        using var db = _context.CreateConnection();
+
+        var result = await db.QueryAsync<JobList>(sql, new { jobId });
+        return [.. result];
+    }
+
     public async Task<string> GetSeq()
     {
         return await _seq.GetNextSequenceValue();
     }
 
-    public async Task<IEnumerable<InspectionTaskDetail>> GetTaskDetailAsync(string jobId)
+    public async Task<IEnumerable<InspectionTaskDetail>> GetDetailTaskAsync(string jobId)
     {
 
         var sql = new StringBuilder(@"
             WITH AllTasks AS (
-                SELECT '1' as t_type, '02' as group_code, job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
+                SELECT 1 as t_type, '02' as group_code, job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
                     NULL as survey_date, NULL as survey_company_code, NULL as survey_company_type, NULL as survey_location_region, NULL as survey_location_province, NULL as survey_location_district, NULL as survey_price1, NULL as survey_price2, 
                     NULL as verify_result_datetime , NULL as result_report , NULL as mile_number , NULL as car_modification , NULL as car_inspection_result , 
                     NULL as car_type , NULL as spare , NULL as gas, NULL as gas_number , NULL as gas_type , NULL as gas_price , NULL as modify_vehicle ,NULL as remark_code
                 FROM inspection_task_001
                 UNION ALL
-                SELECT '2', '03', job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
+                SELECT 2, '03', job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
                     survey_date, survey_company_code, survey_company_type, survey_location_region, survey_location_province, survey_location_district, survey_price1, survey_price2,
                     NULL, NULL, NULL, NULL, NULL,   
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
                 FROM inspection_task_002
                 UNION ALL
-                SELECT '3', '04', job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
+                SELECT 3, '04', job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, NULL, 
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
                     NULL, NULL, NULL, NULL, NULL,   
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL 
                 FROM inspection_task_003
                 UNION ALL
-                SELECT '4', '05', job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
+                SELECT 4, '05', job_id, seq, task_desc, task_complete_status, task_complete_date, task_status, task_detail, appointment_datetime, 
                     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
                     verify_result_datetime ,result_report ,mile_number ,car_modification ,car_inspection_result ,
                     car_type ,spare ,gas, gas_number ,gas_type ,gas_price ,modify_vehicle ,remark_code 
@@ -303,14 +334,14 @@ public class InspectionRepository : IInspectionRepository
             )
             SELECT 
                 -- คำนวณลำดับ Task อัตโนมัติ (Task 1-4 สำหรับ seq 1, 5-8 สำหรับ seq 2, 9-12 สำหรับ seq 3)
-                CAST(((t.seq - 1) * 4) + CAST(t_type AS INT) AS VARCHAR(10)) as task,
+                CAST(((t.seq - 1) * 4) + t_type AS VARCHAR(10)) as task,
                 t.task_desc,
+                t.task_status,
+                mjs.state_desc as task_status_desc,
                 t.task_complete_status,
                 CASE WHEN t.task_complete_status = '002' THEN 'Complete' ELSE 'In Progress' END as task_complete_status_desc,
                 CASE WHEN t.task_complete_status = '002' THEN FORMAT(t.task_complete_date, 'yyyy-MM-dd HH:mm') ELSE NULL END as task_complete_date,
                 FORMAT(t.appointment_datetime, 'yyyy-MM-dd HH:mm') as appointment_datetime,
-                t.task_status,
-                mjs.state_desc as task_status_desc,
                 t.task_detail,
                 FORMAT(t.survey_date, 'yyyy-MM-dd HH:mm') as survey_date,
                 t.survey_company_code, t.survey_company_type, t.survey_location_region, t.survey_location_province, t.survey_location_district, t.survey_price1, t.survey_price2,
@@ -330,11 +361,10 @@ public class InspectionRepository : IInspectionRepository
                 t.modify_vehicle  ,
                 t.remark_code 
             FROM AllTasks t
-            LEFT JOIN master_job_state mjs ON mjs.group_code = t.group_code AND mjs.state_code = t.task_status
+            LEFT JOIN master_job_state mjs ON mjs.state_code = t.task_status
             LEFT JOIN inspection_transaction it ON t.job_id = it.job_id
             WHERE t.job_id = @JobId 
-            --AND t.seq IN (1, 2)
-            ORDER BY t.seq, CAST(t_type AS INT);
+            ORDER BY t.seq, t_type ;
         ");
 
         using var db = _context.CreateConnection();
@@ -360,7 +390,10 @@ public class InspectionRepository : IInspectionRepository
             (job_id, seq, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, appointment_datetime, task_detail, task_create_date, task_create_by) 
             VALUES
             (@JobId, @TaskSeq, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus, @AppointmentDatetime, @TaskDetail, GETDATE(), @TaskCreateBy);
-			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
+			UPDATE inspection_transaction SET 
+				job_status = @TaskCode ,
+				cancel_status = (CASE WHEN @TaskStatus = 'cancel' THEN @TaskStatus ELSE NULL END)
+			WHERE job_id = @JobId;
 			SET @StepLog = 1;
         END
         ELSE
@@ -377,7 +410,10 @@ public class InspectionRepository : IInspectionRepository
                 task_update_date = GETDATE(),
                 task_update_by = @TaskCreateBy
             WHERE job_id = @JobId AND seq = @TaskSeq;
-			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
+			UPDATE inspection_transaction SET 
+				job_status = @TaskCode ,
+				cancel_status = (CASE WHEN @TaskStatus = 'cancel' THEN @TaskStatus ELSE NULL END)
+			WHERE job_id = @JobId;
 			SET @StepLog = 1;
 			END
         END
@@ -436,7 +472,10 @@ public class InspectionRepository : IInspectionRepository
             VALUES
             (@JobId, @TaskSeq, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,    @TaskDetail, GETDATE(), @TaskCreateBy,
 			@SurveyDate, @SurveyCompanyCode,  @SurveyCompanyType,  @SurveyLocationRegion,  @SurveyLocationProvince,  @SurveyLocationDistrict,  @SurveyPrice1,  @SurveyPrice2);
-			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
+			UPDATE inspection_transaction SET 
+				job_status = @TaskCode ,
+				cancel_status = (CASE WHEN @TaskStatus = 'cancel' THEN @TaskStatus ELSE NULL END)
+			WHERE job_id = @JobId;
 			SET @StepLog = 1;
         END
         ELSE
@@ -460,7 +499,10 @@ public class InspectionRepository : IInspectionRepository
                 survey_price1 = @SurveyPrice1, 
                 survey_price2 = @SurveyPrice2
             WHERE job_id = @JobId AND seq = @TaskSeq;
-			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
+			UPDATE inspection_transaction SET 
+				job_status = @TaskCode ,
+				cancel_status = (CASE WHEN @TaskStatus = 'cancel' THEN @TaskStatus ELSE NULL END)
+			WHERE job_id = @JobId;
 			SET @StepLog = 1;
 			END
         END
@@ -516,7 +558,10 @@ public class InspectionRepository : IInspectionRepository
             (job_id, seq, task_desc, task_complete_status, task_complete_date, task_complete_by, task_status, task_detail, task_create_date, task_create_by) 
             VALUES
             (@JobId, @TaskSeq, @TaskDesc, @TaskCompleteStatus, @TaskCompleteDate,  @TaskCompleteBy,  @TaskStatus,  @TaskDetail, GETDATE(),       @TaskCreateBy);
-			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
+			UPDATE inspection_transaction SET 
+				job_status = @TaskCode ,
+				cancel_status = (CASE WHEN @TaskStatus = 'cancel' THEN @TaskStatus ELSE NULL END)
+			WHERE job_id = @JobId;
 			SET @StepLog = 1;
         END
         ELSE
@@ -532,7 +577,10 @@ public class InspectionRepository : IInspectionRepository
                 task_update_date = GETDATE(),
                 task_update_by = @TaskCreateBy
             WHERE job_id = @JobId AND seq = @TaskSeq;
-			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
+			UPDATE inspection_transaction SET 
+				job_status = @TaskCode ,
+				cancel_status = (CASE WHEN @TaskStatus = 'cancel' THEN @TaskStatus ELSE NULL END)
+			WHERE job_id = @JobId;
 			SET @StepLog = 1;
 			END
         END
@@ -593,7 +641,10 @@ public class InspectionRepository : IInspectionRepository
             (@JobId, @TaskSeq,  @AppointmentDatetime, @TaskDesc,  @TaskCompleteStatus,   @TaskCompleteDate,  @TaskCompleteBy, @TaskStatus,  @TaskDetail, GETDATE(), @TaskCreateBy,
 			 @ResultReport, @VerifyResultDatetime,  @MileNumber, @InspectionDatetime,  @CarModification, @CarInspectionResult, @CarType,
 			 @Spare, @Gas,   @GasNumber,  @GasType, @GasPrice,    @ModifyVehicle, @RemarkCode);
-			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
+			UPDATE inspection_transaction SET 
+				job_status = @TaskCode ,
+				cancel_status = (CASE WHEN @TaskStatus = 'cancel' THEN @TaskStatus ELSE NULL END)
+			WHERE job_id = @JobId;
 			SET @StepLog = 1;
         END
         ELSE
@@ -624,7 +675,10 @@ public class InspectionRepository : IInspectionRepository
                 modify_vehicle = @ModifyVehicle,
                 remark_code = @RemarkCode
             WHERE job_id = @JobId AND seq = @TaskSeq;
-			UPDATE inspection_transaction SET job_status = @TaskCode WHERE job_id = @JobId;
+			UPDATE inspection_transaction SET 
+				job_status = @TaskCode ,
+				cancel_status = (CASE WHEN @TaskStatus = 'cancel' THEN @TaskStatus ELSE NULL END)
+			WHERE job_id = @JobId;
 			SET @StepLog = 1;
 			END
         END  
@@ -632,7 +686,7 @@ public class InspectionRepository : IInspectionRepository
         BEGIN
         DECLARE @LastSeq INT, @TaskStatusDesc varchar(100);
         SELECT @LastSeq = ISNULL(MAX(seq), 0) + 1 FROM inspection_transaction_history WHERE job_id = @JobId;
-		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.group_code ='05' and mjs.state_code = @TaskStatus;
+		SELECT @TaskStatusDesc = mjs.state_desc FROM master_job_state mjs WHERE mjs.state_code = @TaskStatus;
         INSERT INTO inspection_transaction_history 
           (job_id, seq,      create_date, create_by,     code,      status,    job_code,    job_status,      job_desc) 
         VALUES
