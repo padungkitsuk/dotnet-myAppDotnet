@@ -311,6 +311,7 @@ public class InspectionService : IInspectionService
         try
         {
             var resultData = await _repository.GetDetailTaskAsync(jobId);
+            //_logger.LogInformation("{id} resultData: {data}", jobId, JsonSerializer.Serialize(resultData, _jsonOptions));
             if (resultData == null)
                 return new ApiResponse<InspectionTransactionDetail> { Message = "Data not found", Status = StatusConstant.NotFoundCode };
 
@@ -322,6 +323,7 @@ public class InspectionService : IInspectionService
             };
             var targetTaskCompleteStatus = new HashSet<string> { "002" }; //002 = conplete
             //var targetTaskStatus = new HashSet<string> { "0528" }; // 0528 = ลบรอย Remark
+            var targetTaskCancelStatus = new HashSet<string> { "cancel" }; //cancel = cancel
 
             var generatedTasks = new List<InspectionTaskDetail>();
 
@@ -348,24 +350,26 @@ public class InspectionService : IInspectionService
 
                 if (lastCompletedTask != null)
                 {
-                    if (!string.IsNullOrEmpty(lastCompletedTask.TaskCompleteStatus)
-                    && targetTaskCompleteStatus.Contains(lastCompletedTask.TaskCompleteStatus))
+                    if (!string.IsNullOrEmpty(lastCompletedTask.TaskStatus) && !targetTaskCancelStatus.Contains(lastCompletedTask.TaskStatus))
                     {
-                        if (int.TryParse(lastCompletedTask.Task, out int currentTaskNum))
+                        if (!string.IsNullOrEmpty(lastCompletedTask.TaskCompleteStatus) && targetTaskCompleteStatus.Contains(lastCompletedTask.TaskCompleteStatus))
                         {
-                            string nextTaskNo = (currentTaskNum + 1).ToString();
-                            // เช็คว่าในระบบมี Task ถัดไปอยู่แล้วหรือยัง (ถ้ายังไม่มีค่อยสร้าง)
-                            bool alreadyExists = resultList.Any(x => x.Task == nextTaskNo);
-                            if (!alreadyExists)
+                            if (int.TryParse(lastCompletedTask.Task, out int currentTaskNum))
                             {
-                                var nextTaskDesc = GetTaskMetadata1(nextTaskNo, lastCompletedTask.RemarkCode).taskDesc;
-                                generatedTasks.Add(new InspectionTaskDetail
+                                string nextTaskNo = (currentTaskNum + 1).ToString();
+                                // เช็คว่าในระบบมี Task ถัดไปอยู่แล้วหรือยัง (ถ้ายังไม่มีค่อยสร้าง)
+                                bool alreadyExists = resultList.Any(x => x.Task == nextTaskNo);
+                                if (!alreadyExists)
                                 {
-                                    Task = nextTaskNo,
-                                    TaskDesc = nextTaskDesc,
-                                    TaskCompleteStatus = "001",
-                                    TaskCompleteStatusDesc = "In Progress"
-                                });
+                                    var nextTaskDesc = GetTaskMetadata1(nextTaskNo, lastCompletedTask.RemarkCode).taskDesc;
+                                    generatedTasks.Add(new InspectionTaskDetail
+                                    {
+                                        Task = nextTaskNo,
+                                        TaskDesc = nextTaskDesc,
+                                        TaskCompleteStatus = "001",
+                                        TaskCompleteStatusDesc = "In Progress"
+                                    });
+                                }
                             }
                         }
                     }
@@ -394,7 +398,7 @@ public class InspectionService : IInspectionService
                 JobList = fleets,
                 List = finalData
             };
-             _logger.LogInformation("{id} result: {fleets}", jobId, JsonSerializer.Serialize(result, _jsonOptions));
+            //_logger.LogInformation("{id} result: {fleets}", jobId, JsonSerializer.Serialize(result, _jsonOptions));
 
             _logger.LogInformation("{id} lists: {Count}, Added: {NewCount}", jobId, resultList.Count, generatedTasks.Count);
 
@@ -427,24 +431,31 @@ public class InspectionService : IInspectionService
             if (taskDesc == null) // ถ้าเลข Task ไม่ถูกต้อง
                 return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "Invalid Task Number", Status = StatusConstant.ErrorCode };
 
-            /// Task 4,8 => validate report = Y
-            if (d.Task == "4")
+            /// check and clean
+            if (d.Task == "1")
             {
-                // codition
-                if(d.TaskStatus == "cancel")
-                {
-                    ClearReportData(d);
-                }
-            }
-            else
-            {
-                ClearReportData(d);
-                if(d.Task == "2" && d.TaskStatus == "cancel")
-                {
-                    ClearServeyData(d);
-                }
+                var jobIds = d.JobList.Select(v => v).Where(p => !string.IsNullOrEmpty(p)).ToImmutableArray();
+                var fleetGroup = (await _repository.GetFleetInfo(jobIds)).ToList();
+                _logger.LogInformation("fleetGroup : {Json}", JsonSerializer.Serialize(fleetGroup, _jsonOptions));
+
+                if (fleetGroup.Count > 1)
+                    return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "Invalid FleetId", Status = StatusConstant.ErrorCode };
+
+
+                if (d.TaskStatus == "cancel") ClearServeyData(d);
 
             }
+            if (d.Task == "2")
+            {
+                if (d.TaskStatus == "cancel") ClearServeyData(d);
+
+            }
+            if (d.Task == "4")
+            {
+                if (d.TaskStatus == "cancel") ClearReportData(d);
+            }
+            
+            if (d.Task == "1" || d.Task == "2" || d.Task == "3") ClearReportData(d);
 
             // Action => {save 001=In Progress}, {002=Complete}
             var (taskCompleteStatus, taskCompleteDate, taskCompleteBy, nextTask, nextTaskDesc) = d.Action switch

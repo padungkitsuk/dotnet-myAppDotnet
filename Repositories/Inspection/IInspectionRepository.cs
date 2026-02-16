@@ -17,6 +17,7 @@ public interface IInspectionRepository {
     Task<List<InspectionTaskResponse>> UpdateTask003(List<InspectionTaskRequest> tasks);
     Task<List<InspectionTaskResponse>> UpdateTask004(List<InspectionTaskRequest> tasks);
     Task<List<VehicleInfo>> GetCarInfo(IEnumerable<string> carPlateNos);
+    Task<List<VehicleInfo>> GetFleetInfo(IEnumerable<string> jobIds);
     Task<List<JobList>> GetJobListInfo(string fleetId);
     Task<List<JobList>> GetJobListInfoById(string jobId);
     Task<string> GetSeq();

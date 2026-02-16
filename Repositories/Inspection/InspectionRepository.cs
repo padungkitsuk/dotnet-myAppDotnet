@@ -48,11 +48,26 @@ public class InspectionRepository : IInspectionRepository
         ");
 
         var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrEmpty(d.JobOwner))
+        {
+            sql.Append(" AND it.job_owner = @JobOwner ");
+            parameters.Add("JobOwner", d.JobOwner);
+        }
+
         if (!string.IsNullOrEmpty(d.JobId))
         {
             sql.Append(" AND it.job_id = @JobId ");
             parameters.Add("JobId", d.JobId);
         }
+
+        if (!string.IsNullOrEmpty(d.CustomerType))
+        {
+            sql.Append(" AND it.customer_type = @CustomerType ");
+            parameters.Add("CustomerType", d.CustomerType);
+        }
+
+        
 
         // -- 1. เรียงตามปี -- 2. เรียงตามลำดับ -- 3. กรณีเป็นตัวอักษร
         sql.Append(@" ORDER BY 
@@ -256,6 +271,25 @@ public class InspectionRepository : IInspectionRepository
 
         // ส่ง carPlateNos เข้าไปตรงๆ Dapper จะจัดการที่เหลือให้
         var result = await db.QueryAsync<VehicleInfo>(sql, new { carPlateNos });
+        return [.. result];
+    }
+
+    public async Task<List<VehicleInfo>> GetFleetInfo(IEnumerable<string> jobIds)
+    {
+        // Dapper แปลง @jobIds เป็น ('xxx1', 'xxx2', ...)
+        const string sql = @"
+        select
+        count(fleet_id) as fleet_count,
+        fleet_id
+        from inspection_transaction
+        where job_id in @jobIds
+        group by fleet_id
+        ";
+
+        using var db = _context.CreateConnection();
+
+        // ส่ง carPlateNos เข้าไปตรงๆ Dapper จะจัดการที่เหลือให้
+        var result = await db.QueryAsync<VehicleInfo>(sql, new { jobIds });
         return [.. result];
     }
 

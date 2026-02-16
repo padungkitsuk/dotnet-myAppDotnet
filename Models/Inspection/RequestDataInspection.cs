@@ -13,6 +13,9 @@ namespace MyBackend.Models.Inspection
         [JsonPropertyName("jobId")]
         public string? JobId { get; set; }
 
+        [JsonPropertyName("customerType")]
+        public string? CustomerType { get; set; }
+
         [JsonPropertyName("customerFirstName")]
         public string? CustomerFirstName { get; set; }
 
@@ -33,6 +36,10 @@ namespace MyBackend.Models.Inspection
 
         [JsonPropertyName("agentCode")]
         public string? AgentCode { get; set; }
+
+
+        [JsonPropertyName("jobOwner")]
+        public string? JobOwner { get; set; }
 
 
         //

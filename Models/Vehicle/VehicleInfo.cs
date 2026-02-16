@@ -48,5 +48,12 @@ namespace MyBackend.Models.Vehicle
         [JsonPropertyName("jobId")]
         public string? JobId { get; set; }
 
+        // check fleet
+        [JsonPropertyName("fleetId")]
+        public string? FleetId { get; set; }
+
+        [JsonPropertyName("fleetCount")]
+        public int? FleetCount { get; set; }
+
     }
 }

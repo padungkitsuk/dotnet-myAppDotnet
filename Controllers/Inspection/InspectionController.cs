@@ -23,6 +23,35 @@ public class InspectionController : ControllerBase
     {
         if (d.PageNo < 1) d.PageNo = 1;
         if (d.PageSize < 1) d.PageSize = 10;
+        // set allTask
+        d.JobOwner = null;
+
+        var result = await _inspectService.GetPagedAsync(d);
+
+        return result.Status switch
+        {
+            "00" => Ok(result),
+            "01" => Conflict(result),
+            "02" => NotFound(result),
+            "99" => StatusCode(500, result),
+            _ => BadRequest(new PagedResult<IEnumerable<InspectionTransaction>>
+            {
+                Message = "Unknown Error",
+                Status = result.Status
+            })
+        };
+    }
+
+    [HttpPost("list/myTask")]
+    public async Task<ActionResult<PagedResult<IEnumerable<InspectionTransaction>>>> GetMyTask(
+        [FromBody] RequestDataInspection d,
+        [FromHeader(Name = "userId")] string userId
+    )
+    {
+        if (d.PageNo < 1) d.PageNo = 1;
+        if (d.PageSize < 1) d.PageSize = 10;
+        // set myTask
+        d.JobOwner = userId;
 
         var result = await _inspectService.GetPagedAsync(d);
 
