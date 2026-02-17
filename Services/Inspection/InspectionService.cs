@@ -436,26 +436,43 @@ public class InspectionService : IInspectionService
             {
                 var jobIds = d.JobList.Select(v => v).Where(p => !string.IsNullOrEmpty(p)).ToImmutableArray();
                 var fleetGroup = (await _repository.GetFleetInfo(jobIds)).ToList();
-                _logger.LogInformation("fleetGroup : {Json}", JsonSerializer.Serialize(fleetGroup, _jsonOptions));
 
                 if (fleetGroup.Count > 1)
-                    return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "Invalid FleetId", Status = StatusConstant.ErrorCode };
+                {
+                    _logger.LogInformation("fleetGroup : {Json}", JsonSerializer.Serialize(fleetGroup, _jsonOptions));
+                    return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "Invalid Fleet Id Group", Status = StatusConstant.ErrorCode };
+                }
 
+                if (fleetGroup.Count == 1)
+                {
+                    var fleetFirst = fleetGroup.FirstOrDefault();
+                    _logger.LogInformation("fleetFirst : {Json}", JsonSerializer.Serialize(fleetFirst, _jsonOptions));
+                    if (string.IsNullOrEmpty(fleetFirst?.FleetId) && fleetFirst?.FleetCount > 1)
+                        return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "Invalid Fleet Id Group", Status = StatusConstant.ErrorCode };
+                }
 
-                if (d.TaskStatus == "cancel") ClearServeyData(d);
-
+                if (d.TaskStatus == "cancel")
+                    ClearServeyData(d);
             }
-            if (d.Task == "2")
+            else if (d.Task == "2")
             {
-                if (d.TaskStatus == "cancel") ClearServeyData(d);
-
+                if (d.TaskStatus == "cancel")
+                    ClearServeyData(d);
             }
-            if (d.Task == "4")
+            else if (d.Task == "4")
             {
-                if (d.TaskStatus == "cancel") ClearReportData(d);
+                if (d.TaskStatus == "cancel")
+                    ClearReportData(d);
             }
-            
-            if (d.Task == "1" || d.Task == "2" || d.Task == "3") ClearReportData(d);
+
+            if (d.Task == "2" || d.Task == "3" || d.Task == "4")
+            {
+                if (d.JobList.Count > 1)
+                    return new ApiResponse<IEnumerable<InspectionTaskResponse>> { Message = "The list must contain no more than one task.", Status = StatusConstant.ErrorCode };
+            }
+
+            if (d.Task == "1" || d.Task == "2" || d.Task == "3")
+                ClearReportData(d);
 
             // Action => {save 001=In Progress}, {002=Complete}
             var (taskCompleteStatus, taskCompleteDate, taskCompleteBy, nextTask, nextTaskDesc) = d.Action switch

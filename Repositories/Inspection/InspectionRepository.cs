@@ -279,7 +279,7 @@ public class InspectionRepository : IInspectionRepository
         // Dapper แปลง @jobIds เป็น ('xxx1', 'xxx2', ...)
         const string sql = @"
         select
-        count(fleet_id) as fleet_count,
+        count(job_id) as fleet_count,
         fleet_id
         from inspection_transaction
         where job_id in @jobIds
